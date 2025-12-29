@@ -137,9 +137,9 @@ contract OpcodesAndPrecompilesGasPricing {
     function testEcAdd() external view returns (bytes memory) {
         // Two valid points on BN254 curve (generator point P and 2P)
         bytes memory input = hex"0000000000000000000000000000000000000000000000000000000000000001"
-                             hex"0000000000000000000000000000000000000000000000000000000000000002"
-                             hex"030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3"
-                             hex"15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4";
+            hex"0000000000000000000000000000000000000000000000000000000000000002"
+            hex"030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3"
+            hex"15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4";
 
         (bool success, bytes memory result) = address(0x06).staticcall(input);
         require(success, "ecAdd failed");
@@ -151,8 +151,8 @@ contract OpcodesAndPrecompilesGasPricing {
     function testEcMul() external view returns (bytes memory) {
         // Generator point G and scalar 2
         bytes memory input = hex"0000000000000000000000000000000000000000000000000000000000000001"
-                             hex"0000000000000000000000000000000000000000000000000000000000000002"
-                             hex"0000000000000000000000000000000000000000000000000000000000000002";
+            hex"0000000000000000000000000000000000000000000000000000000000000002"
+            hex"0000000000000000000000000000000000000000000000000000000000000002";
 
         (bool success, bytes memory result) = address(0x07).staticcall(input);
         require(success, "ecMul failed");
@@ -166,11 +166,11 @@ contract OpcodesAndPrecompilesGasPricing {
         // Single pairing with point at infinity (simplest valid input)
         // G1 point at infinity (0,0) + valid G2 point
         bytes memory input = hex"0000000000000000000000000000000000000000000000000000000000000000"
-                             hex"0000000000000000000000000000000000000000000000000000000000000000"
-                             hex"198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
-                             hex"1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
-                             hex"090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
-                             hex"12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa";
+            hex"0000000000000000000000000000000000000000000000000000000000000000"
+            hex"198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
+            hex"1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
+            hex"090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
+            hex"12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa";
 
         (bool success, bytes memory result) = address(0x08).staticcall(input);
         require(success, "ecPairing failed");
@@ -185,16 +185,15 @@ contract OpcodesAndPrecompilesGasPricing {
     function testBlake2f() external view returns (bytes memory) {
         // Blake2f input: 4 bytes rounds + 64 bytes h + 128 bytes m + 8 bytes t[0] + 8 bytes t[1] + 1 byte f
         // Using 12 rounds (0x0000000c)
-        bytes memory input = hex"0000000c"  // 12 rounds
-                             hex"48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5"
-                             hex"d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b"
-                             hex"6162630000000000000000000000000000000000000000000000000000000000"
-                             hex"0000000000000000000000000000000000000000000000000000000000000000"
-                             hex"0000000000000000000000000000000000000000000000000000000000000000"
-                             hex"0000000000000000000000000000000000000000000000000000000000000000"
-                             hex"0300000000000000"  // t[0]
-                             hex"0000000000000000"  // t[1]
-                             hex"01";  // f (final block)
+        bytes memory input = hex"0000000c" // 12 rounds
+            hex"48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5"
+            hex"d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b"
+            hex"6162630000000000000000000000000000000000000000000000000000000000"
+            hex"0000000000000000000000000000000000000000000000000000000000000000"
+            hex"0000000000000000000000000000000000000000000000000000000000000000"
+            hex"0000000000000000000000000000000000000000000000000000000000000000" hex"0300000000000000" // t[0]
+            hex"0000000000000000" // t[1]
+            hex"01"; // f (final block)
 
         (bool success, bytes memory result) = address(0x09).staticcall(input);
         require(success, "blake2f failed");
