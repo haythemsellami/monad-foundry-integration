@@ -64,7 +64,8 @@ contract MonadGasTest is Test {
 
     /// @notice Test cold BALANCE costs 10100 gas (Monad) vs 2600 (Ethereum)
     function test_ColdBalanceGasCost() public {
-        address target = address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "cold1")))));
+        address target =
+            address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "cold1")))));
 
         uint256 gasBefore = gasleft();
         uint256 bal = target.balance;
@@ -89,7 +90,10 @@ contract MonadGasTest is Test {
         uint256 bal2 = target.balance; // Warm access
         uint256 gasAfter = gasleft();
 
-        assembly { mstore(0, bal1) mstore(32, bal2) }
+        assembly {
+            mstore(0, bal1)
+            mstore(32, bal2)
+        }
 
         uint256 warmGas = gasBefore - gasAfter;
         console.log("Warm BALANCE gas:", warmGas);
@@ -99,7 +103,8 @@ contract MonadGasTest is Test {
 
     /// @notice Test cold EXTCODESIZE costs 10100 gas (Monad)
     function test_ColdExtcodesizeGasCost() public {
-        address target = address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "extcode")))));
+        address target =
+            address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "extcode")))));
 
         uint256 gasBefore = gasleft();
         uint256 size = target.code.length;
@@ -115,7 +120,8 @@ contract MonadGasTest is Test {
 
     /// @notice Test cold EXTCODEHASH costs 10100 gas (Monad)
     function test_ColdExtcodehashGasCost() public {
-        address target = address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "extcodehash")))));
+        address target =
+            address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "extcodehash")))));
 
         uint256 gasBefore = gasleft();
         bytes32 hash = target.codehash;
@@ -140,7 +146,10 @@ contract MonadGasTest is Test {
         uint256 bal2 = target.balance; // Warm
         uint256 gasAfterWarm = gasleft();
 
-        assembly { mstore(0, bal1) mstore(32, bal2) }
+        assembly {
+            mstore(0, bal1)
+            mstore(32, bal2)
+        }
 
         uint256 coldGas = gasBefore - gasAfterCold;
         uint256 warmGas = gasAfterCold - gasAfterWarm;
@@ -329,9 +338,7 @@ contract MonadGasTest is Test {
         console.log("Clear (2nd):", gasCosts[3]);
 
         // Both clears should have similar cost (no refund accumulation)
-        uint256 clearDiff = gasCosts[1] > gasCosts[3]
-            ? gasCosts[1] - gasCosts[3]
-            : gasCosts[3] - gasCosts[1];
+        uint256 clearDiff = gasCosts[1] > gasCosts[3] ? gasCosts[1] - gasCosts[3] : gasCosts[3] - gasCosts[1];
 
         assertTrue(clearDiff < 2000, "Clear operations should have similar cost");
     }
@@ -352,11 +359,27 @@ contract StorageContract {
     uint256 public slot1;
     uint256 public slot2;
 
-    function setStorage(uint256 value) external { slot0 = value; }
-    function clearStorage() external { slot0 = 0; }
-    function setMultipleSlots(uint256 a, uint256 b, uint256 c) external {
-        slot0 = a; slot1 = b; slot2 = c;
+    function setStorage(uint256 value) external {
+        slot0 = value;
     }
-    function clearMultipleSlots() external { slot0 = 0; slot1 = 0; slot2 = 0; }
-    function getStorage() external view returns (uint256) { return slot0; }
+
+    function clearStorage() external {
+        slot0 = 0;
+    }
+
+    function setMultipleSlots(uint256 a, uint256 b, uint256 c) external {
+        slot0 = a;
+        slot1 = b;
+        slot2 = c;
+    }
+
+    function clearMultipleSlots() external {
+        slot0 = 0;
+        slot1 = 0;
+        slot2 = 0;
+    }
+
+    function getStorage() external view returns (uint256) {
+        return slot0;
+    }
 }
