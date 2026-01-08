@@ -47,16 +47,24 @@ forge test -vv
 forge test --match-test test_ColdBalanceGasCost
 ```
 
-### 2. Anvil Scripts (`.sh`)
+### 2. Chisel Tests (`script/test/chisel/`)
 
-Shell scripts that test behavior requiring real transactions (balance changes, gas charging). These use `anvil` and `cast`.
+Shell scripts that test chisel REPL with Monad gas costs. No anvil needed.
+
+```bash
+./script/test/chisel/test_chisel_monad.sh
+```
+
+### 3. Anvil Scripts (`script/test/anvil/`)
+
+Shell scripts that test behavior requiring real transactions (balance changes, gas charging). These use `anvil --monad` and `cast`.
 
 ```bash
 # Start Monad anvil
 anvil --monad
 
 # In another terminal, run script
-./script/test_gas_limit_charging.sh
+./script/test/anvil/test_gas_limit_charging.sh
 ```
 
 ## Test Files
@@ -97,7 +105,16 @@ Tests contract bytecode size limits.
 forge test --match-contract BytecodeSizeLimitTest -vv
 ```
 
-### Anvil Scripts (`script/`)
+### Chisel Tests (`script/test/chisel/`)
+
+#### `test_chisel_monad.sh`
+Verifies chisel uses Monad gas costs for cold/warm access.
+
+```bash
+./script/test/chisel/test_chisel_monad.sh
+```
+
+### Anvil Scripts (`script/test/anvil/`)
 
 #### `test_gas_limit_charging.sh`
 **Proves Monad charges based on `gas_limit`, not `gas_used`.**
@@ -107,7 +124,7 @@ forge test --match-contract BytecodeSizeLimitTest -vv
 anvil --monad
 
 # Terminal 2: Run test
-./script/test_gas_limit_charging.sh
+./script/test/anvil/test_gas_limit_charging.sh
 ```
 
 Expected output on Monad:
@@ -133,5 +150,5 @@ Tests gas costs for opcodes and precompiles.
 
 ```bash
 anvil --monad
-./script/test_opcodes_precompiles_gas_pricing.sh
+./script/test/anvil/test_opcodes_precompiles_gas_pricing.sh
 ```

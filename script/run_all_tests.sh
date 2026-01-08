@@ -60,9 +60,31 @@ fi
 echo ""
 
 # ============================================================================
-# ANVIL SCRIPTS
+# CHISEL TESTS
 # ============================================================================
-echo -e "${YELLOW}[ANVIL SCRIPTS]${NC}"
+echo -e "${YELLOW}[CHISEL TESTS]${NC}"
+
+# Run chisel tests (no anvil needed)
+for script in "$PROJECT_ROOT"/script/test/chisel/*.sh; do
+    [[ -f "$script" ]] || continue
+    script_name=$(basename "$script")
+
+    if "$script" &>/tmp/chisel_test_output.txt; then
+        echo -e "  ${GREEN}✓${NC} $script_name"
+        ((PASSED++))
+    else
+        echo -e "  ${RED}✗${NC} $script_name"
+        ((FAILED++))
+        FAILED_TESTS+=("chisel: $script_name")
+    fi
+done
+
+echo ""
+
+# ============================================================================
+# ANVIL TESTS
+# ============================================================================
+echo -e "${YELLOW}[ANVIL TESTS]${NC}"
 
 # Start anvil if not running
 ANVIL_PID=""
@@ -77,12 +99,11 @@ if ! cast chain-id --rpc-url http://localhost:8545 &>/dev/null; then
     fi
 fi
 
-# Auto-discover and run all .sh scripts in script/test/
-for script in "$PROJECT_ROOT"/script/test/*.sh; do
+# Run anvil tests
+for script in "$PROJECT_ROOT"/script/test/anvil/*.sh; do
     [[ -f "$script" ]] || continue
     script_name=$(basename "$script")
 
-    # Run script silently, check exit code
     if "$script" &>/tmp/anvil_test_output.txt; then
         echo -e "  ${GREEN}✓${NC} $script_name"
         ((PASSED++))
