@@ -77,43 +77,29 @@ contract StakingPrecompileForkTest is Test {
 
     // ============ Delegator Tests ============
 
-    // TODO: fix later once delegate feature implemented in the precompile
-    // function testFork_GetDelegator() public view {
-    //     uint64 proposerValId = STAKING.getProposerValId();
-    //     address delegator = vm.envOr("DELEGATOR_ADDRESS", address(this));
+    function testFork_GetDelegator() public view {
+        uint64 proposerValId = STAKING.getProposerValId();
 
-    //     (
-    //         uint256 stake,
-    //         uint256 accRewardPerToken,
-    //         uint256 unclaimedRewards,
-    //         uint256 deltaStake,
-    //         uint256 nextDeltaStake,
-    //         uint64 deltaEpoch,
-    //         uint64 nextDeltaEpoch
-    //     ) = STAKING.getDelegator(proposerValId, delegator);
-
-    //     console.log("Delegator stake:", stake);
-    //     console.log("Delegator accRewardPerToken:", accRewardPerToken);
-    //     console.log("Delegator unclaimedRewards:", unclaimedRewards);
-    //     console.log("Delegator deltaStake:", deltaStake);
-    //     console.log("Delegator nextDeltaStake:", nextDeltaStake);
-    //     console.log("Delegator deltaEpoch:", deltaEpoch);
-    //     console.log("Delegator nextDeltaEpoch:", nextDeltaEpoch);
-    // }
+        // Call with address(this) which has no delegation — should return zeros without reverting
+        bytes4 selector = bytes4(keccak256("getDelegator(uint64,address)"));
+        (bool success,) = address(STAKING).staticcall(
+            abi.encodeWithSelector(selector, proposerValId, address(this))
+        );
+        assertTrue(success, "getDelegator should not revert for unknown delegator");
+    }
 
     // ============ Withdrawal Request Tests ============
 
-    // TODO: fix later once delegate and withdraw features are implemented in the precompile
-    // function testFork_GetWithdrawalRequest() public view {
-    //     uint64 proposerValId = STAKING.getProposerValId();
-    //     address delegator = vm.envOr("DELEGATOR_ADDRESS", address(this));
+    function testFork_GetWithdrawalRequest() public view {
+        uint64 proposerValId = STAKING.getProposerValId();
 
-    //     (uint256 amount, uint256 accRewardPerToken, uint64 epoch) = STAKING.getWithdrawalRequest(proposerValId, delegator, 0);
-
-    //     console.log("Withdrawal request amount:", amount);
-    //     console.log("Withdrawal request accRewardPerToken:", accRewardPerToken);
-    //     console.log("Withdrawal request epoch:", epoch);
-    // }
+        // Call with address(this) which has no withdrawal — should return zeros without reverting
+        bytes4 selector = bytes4(keccak256("getWithdrawalRequest(uint64,address,uint8)"));
+        (bool success,) = address(STAKING).staticcall(
+            abi.encodeWithSelector(selector, proposerValId, address(this), uint8(0))
+        );
+        assertTrue(success, "getWithdrawalRequest should not revert for unknown withdrawal");
+    }
 
     // ============ Validator Set Tests ============
 
