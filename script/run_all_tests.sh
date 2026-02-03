@@ -120,6 +120,33 @@ done
 echo ""
 
 # ============================================================================
+# ANVIL FORK TESTS (uses separate anvil instance with Monad fork)
+# ============================================================================
+echo -e "${YELLOW}[ANVIL FORK TESTS]${NC}"
+
+# Check if MONAD_RPC_URL is set or use default
+MONAD_RPC_URL="${MONAD_RPC_URL:-https://rpc.monad.xyz}"
+
+# Run fork tests (each script manages its own anvil fork instance)
+for script in "$PROJECT_ROOT"/script/test/anvil/fork/*.sh; do
+    [[ -f "$script" ]] || continue
+    script_name=$(basename "$script")
+
+    if MONAD_RPC_URL="$MONAD_RPC_URL" "$script" &>/tmp/anvil_fork_test_output.txt; then
+        echo -e "  ${GREEN}✓${NC} $script_name"
+        ((PASSED++))
+    else
+        echo -e "  ${RED}✗${NC} $script_name"
+        ((FAILED++))
+        FAILED_TESTS+=("anvil-fork: $script_name")
+        # Show last 20 lines of output on failure for debugging
+        # tail -20 /tmp/anvil_fork_test_output.txt
+    fi
+done
+
+echo ""
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 echo -e "${CYAN}══════════════════════════════════════════════════════════════${NC}"
