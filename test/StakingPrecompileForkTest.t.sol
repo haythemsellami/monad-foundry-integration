@@ -7,8 +7,8 @@ import "../src/IStakingPrecompile.sol";
 /// @title StakingPrecompileForkTest
 /// @notice Fork-based tests for Monad staking precompile (implemented functions only)
 /// @dev Run with: MONAD_RPC_URL="your-rpc-url" forge test --match-contract StakingPrecompileForkTest -vvv
-/// @dev Tests the 8 implemented view functions: getEpoch, getProposerValId, getValidator, getDelegator, getWithdrawalRequest,
-/// @dev getConsensusValidatorSet, getSnapshotValidatorSet, getExecutionValidatorSet
+/// @dev Tests all 10 view functions: getEpoch, getProposerValId, getValidator, getDelegator, getWithdrawalRequest,
+/// @dev getConsensusValidatorSet, getSnapshotValidatorSet, getExecutionValidatorSet, getDelegations, getDelegators
 contract StakingPrecompileForkTest is Test {
     address constant STAKING_ADDRESS = address(0x0000000000000000000000000000000000001000);
     IStakingPrecompile constant STAKING = IStakingPrecompile(STAKING_ADDRESS);
@@ -46,9 +46,8 @@ contract StakingPrecompileForkTest is Test {
 
         // Use raw call to avoid stack too deep with full tuple
         bytes4 selector = bytes4(keccak256("getValidator(uint64)"));
-        (bool success, bytes memory result) = address(STAKING).staticcall(
-            abi.encodeWithSelector(selector, proposerValId)
-        );
+        (bool success, bytes memory result) =
+            address(STAKING).staticcall(abi.encodeWithSelector(selector, proposerValId));
 
         require(success, "getValidator call failed");
 
@@ -82,9 +81,7 @@ contract StakingPrecompileForkTest is Test {
 
         // Call with address(this) which has no delegation — should return zeros without reverting
         bytes4 selector = bytes4(keccak256("getDelegator(uint64,address)"));
-        (bool success,) = address(STAKING).staticcall(
-            abi.encodeWithSelector(selector, proposerValId, address(this))
-        );
+        (bool success,) = address(STAKING).staticcall(abi.encodeWithSelector(selector, proposerValId, address(this)));
         assertTrue(success, "getDelegator should not revert for unknown delegator");
     }
 
@@ -95,9 +92,8 @@ contract StakingPrecompileForkTest is Test {
 
         // Call with address(this) which has no withdrawal — should return zeros without reverting
         bytes4 selector = bytes4(keccak256("getWithdrawalRequest(uint64,address,uint8)"));
-        (bool success,) = address(STAKING).staticcall(
-            abi.encodeWithSelector(selector, proposerValId, address(this), uint8(0))
-        );
+        (bool success,) =
+            address(STAKING).staticcall(abi.encodeWithSelector(selector, proposerValId, address(this), uint8(0)));
         assertTrue(success, "getWithdrawalRequest should not revert for unknown withdrawal");
     }
 
@@ -139,11 +135,155 @@ contract StakingPrecompileForkTest is Test {
         assertEq(valIdsPastEnd.length, 0, "Should return empty array when start >= length");
     }
 
+    // ============ Delegation List Tests ============
+
+    function testFork_GetDelegations() public view {
+        // Find a validator with known delegators by using a consensus validator
+        (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
+        require(consensusVals.length > 0, "Need at least one consensus validator");
+
+        uint64 valId = consensusVals[0];
+
+        // Get delegators for this validator to find a real delegator address
+        (bool delsDone, address nextDel, address[] memory delegators) = STAKING.getDelegators(valId, address(0));
+        console.log("Validator", valId, "has delegators (first page):", delegators.length);
+
+        if (delegators.length > 0) {
+            // Now test getDelegations for the first delegator
+            address delegator = delegators[0];
+            (bool isDone, uint64 nextValId, uint64[] memory valIds) = STAKING.getDelegations(delegator, 0);
+
+            console.log("Delegator", delegator);
+            console.log("  delegated to validators (first page):", valIds.length);
+            console.log("  isDone:", isDone);
+            console.log("  nextValId:", nextValId);
+
+            // The delegator must be staked with at least the validator we found them through
+            assertGt(valIds.length, 0, "Delegator should have at least one delegation");
+
+            // Verify the validator we found them through is in the results
+            bool found = false;
+            for (uint256 i = 0; i < valIds.length; i++) {
+                if (valIds[i] == valId) {
+                    found = true;
+                    break;
+                }
+            }
+            assertTrue(found, "Delegation list should contain the validator we queried");
+
+            // If isDone, nextValId should be 0
+            if (isDone) {
+                assertEq(nextValId, 0, "nextValId should be 0 when done");
+            } else {
+                assertGt(nextValId, 0, "nextValId should be > 0 when not done");
+            }
+        }
+    }
+
+    function testFork_GetDelegators() public view {
+        // Use a consensus validator — should have at least one delegator
+        (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
+        require(consensusVals.length > 0, "Need at least one consensus validator");
+
+        uint64 valId = consensusVals[0];
+        (bool isDone, address nextDelegator, address[] memory delegators) = STAKING.getDelegators(valId, address(0));
+
+        console.log("Validator", valId, "delegators (first page):", delegators.length);
+        console.log("  isDone:", isDone);
+
+        // A consensus validator should have at least one delegator (itself or others)
+        assertGt(delegators.length, 0, "Consensus validator should have at least one delegator");
+
+        // All returned addresses should be non-zero
+        for (uint256 i = 0; i < delegators.length; i++) {
+            assertTrue(delegators[i] != address(0), "Delegator address should not be zero");
+        }
+
+        // If isDone, nextDelegator should be zero address
+        if (isDone) {
+            assertEq(nextDelegator, address(0), "nextDelegator should be zero when done");
+        } else {
+            assertTrue(nextDelegator != address(0), "nextDelegator should be non-zero when not done");
+        }
+    }
+
+    function testFork_GetDelegations_EmptyForUnknown() public view {
+        // An address with no delegations should return empty
+        (bool isDone, uint64 nextValId, uint64[] memory valIds) = STAKING.getDelegations(address(this), 0);
+        assertTrue(isDone, "Should be done for address with no delegations");
+        assertEq(valIds.length, 0, "Should return empty array for address with no delegations");
+    }
+
+    function testFork_GetDelegators_EmptyForUnknown() public view {
+        // A non-existent validator (very high ID) should return empty
+        (bool isDone, address nextDelegator, address[] memory delegators) = STAKING.getDelegators(999999, address(0));
+        assertTrue(isDone, "Should be done for non-existent validator");
+        assertEq(delegators.length, 0, "Should return empty array for non-existent validator");
+    }
+
+    function testFork_GetDelegations_Pagination() public view {
+        // Find a delegator with known delegations
+        (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
+        require(consensusVals.length > 0, "Need at least one consensus validator");
+
+        (,, address[] memory delegators) = STAKING.getDelegators(consensusVals[0], address(0));
+        if (delegators.length > 0) {
+            // Get first page
+            (bool isDone1, uint64 nextValId1, uint64[] memory page1) = STAKING.getDelegations(delegators[0], 0);
+
+            if (!isDone1 && nextValId1 > 0) {
+                // Get second page using continuation token
+                (bool isDone2,, uint64[] memory page2) = STAKING.getDelegations(delegators[0], nextValId1);
+                console.log("Delegation pagination: page1 =", page1.length, "page2 =", page2.length);
+
+                // Second page should not repeat first page entries
+                if (page2.length > 0) {
+                    bool overlap = false;
+                    for (uint256 i = 0; i < page1.length && !overlap; i++) {
+                        for (uint256 j = 0; j < page2.length && !overlap; j++) {
+                            if (page1[i] == page2[j]) overlap = true;
+                        }
+                    }
+                    assertFalse(overlap, "Paginated pages should not overlap");
+                }
+            }
+        }
+    }
+
+    function testFork_GetDelegators_Pagination() public view {
+        (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
+        require(consensusVals.length > 0, "Need at least one consensus validator");
+
+        uint64 valId = consensusVals[0];
+
+        // Get first page
+        (bool isDone1, address nextDel1, address[] memory page1) = STAKING.getDelegators(valId, address(0));
+
+        if (!isDone1 && nextDel1 != address(0)) {
+            // Get second page using continuation token
+            (bool isDone2,, address[] memory page2) = STAKING.getDelegators(valId, nextDel1);
+            console.log("Delegator pagination: page1 =", page1.length, "page2 =", page2.length);
+
+            // Second page should not repeat first page entries
+            if (page2.length > 0) {
+                bool overlap = false;
+                for (uint256 i = 0; i < page1.length && !overlap; i++) {
+                    for (uint256 j = 0; j < page2.length && !overlap; j++) {
+                        if (page1[i] == page2[j]) overlap = true;
+                    }
+                }
+                assertFalse(overlap, "Paginated pages should not overlap");
+            }
+        }
+    }
+
+    // ============ Validator Set Consistency Tests ============
+
     function testFork_ValidatorSets_Consistency() public view {
         // All three sets should contain valid validator IDs
-        (, , uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
-        (, , uint64[] memory snapshotVals) = STAKING.getSnapshotValidatorSet(0);
-        (, , uint64[] memory executionVals) = STAKING.getExecutionValidatorSet(0);
+        (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
+        (,, uint64[] memory snapshotVals) = STAKING.getSnapshotValidatorSet(0);
+        (,, uint64[] memory executionVals) = STAKING.getExecutionValidatorSet(0);
 
         // Consensus and snapshot should have the same size (after epoch boundary)
         assertEq(consensusVals.length, snapshotVals.length, "Consensus and snapshot should have same size");
@@ -154,7 +294,7 @@ contract StakingPrecompileForkTest is Test {
         // Check that consensus validators exist in execution set
         if (consensusVals.length > 0) {
             bool found = false;
-            for (uint i = 0; i < executionVals.length; i++) {
+            for (uint256 i = 0; i < executionVals.length; i++) {
                 if (executionVals[i] == consensusVals[0]) {
                     found = true;
                     break;

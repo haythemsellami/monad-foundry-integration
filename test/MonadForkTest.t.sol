@@ -52,9 +52,7 @@ contract MonadForkTest is Test {
     /// @dev Checks ShMonad vault totalAssets() matches known value at fork block
     function test_fork_state_preserved() public {
         // Call totalAssets() on ShMonad vault
-        (bool success, bytes memory data) = SHMONAD_VAULT.staticcall(
-            abi.encodeWithSignature("totalAssets()")
-        );
+        (bool success, bytes memory data) = SHMONAD_VAULT.staticcall(abi.encodeWithSignature("totalAssets()"));
 
         assertTrue(success, "totalAssets() call failed");
 
@@ -64,19 +62,13 @@ contract MonadForkTest is Test {
         console.log("Expected:", EXPECTED_TOTAL_ASSETS);
 
         assertEq(
-            totalAssets,
-            EXPECTED_TOTAL_ASSETS,
-            "Fork state mismatch: totalAssets must match known value at fork block"
+            totalAssets, EXPECTED_TOTAL_ASSETS, "Fork state mismatch: totalAssets must match known value at fork block"
         );
     }
 
     /// @notice Verify we're on the correct fork block
     function test_fork_block_number() public view {
-        assertEq(
-            block.number,
-            FORK_BLOCK_NUMBER,
-            "Fork block number must match expected"
-        );
+        assertEq(block.number, FORK_BLOCK_NUMBER, "Fork block number must match expected");
     }
 
     // =========================================================================
@@ -96,19 +88,14 @@ contract MonadForkTest is Test {
         console.log("Cold SLOAD gas on fork:", gasUsed);
         console.log("Expected:", EXPECTED_COLD_SLOAD_GAS);
 
-        assertEq(
-            gasUsed,
-            EXPECTED_COLD_SLOAD_GAS,
-            "Cold SLOAD must cost 8119 (8100 + 19 overhead)"
-        );
+        assertEq(gasUsed, EXPECTED_COLD_SLOAD_GAS, "Cold SLOAD must cost 8119 (8100 + 19 overhead)");
     }
 
     /// @notice Test cold BALANCE uses exact Monad cost (10100 + overhead)
     function test_fork_cold_balance_cost() public {
         // Use address that hasn't been accessed in this tx
-        address target = address(
-            uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "fork_balance"))))
-        );
+        address target =
+            address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "fork_balance")))));
 
         uint256 gasBefore = gasleft();
         uint256 bal = target.balance;
@@ -121,11 +108,7 @@ contract MonadForkTest is Test {
         console.log("Cold BALANCE gas on fork:", gasUsed);
         console.log("Expected:", EXPECTED_COLD_ACCOUNT_GAS);
 
-        assertEq(
-            gasUsed,
-            EXPECTED_COLD_ACCOUNT_GAS,
-            "Cold BALANCE must cost 10125 (10100 + 25 overhead)"
-        );
+        assertEq(gasUsed, EXPECTED_COLD_ACCOUNT_GAS, "Cold BALANCE must cost 10125 (10100 + 25 overhead)");
     }
 
     /// @notice Test warm access uses exact cost (100 + overhead)
@@ -146,11 +129,7 @@ contract MonadForkTest is Test {
         console.log("Warm SLOAD gas on fork:", gasUsed);
         console.log("Expected:", EXPECTED_WARM_SLOAD_GAS);
 
-        assertEq(
-            gasUsed,
-            EXPECTED_WARM_SLOAD_GAS,
-            "Warm SLOAD must cost 119 (100 + 19 overhead)"
-        );
+        assertEq(gasUsed, EXPECTED_WARM_SLOAD_GAS, "Warm SLOAD must cost 119 (100 + 19 overhead)");
     }
 
     /// @notice Test cold EXTCODESIZE uses exact Monad cost
@@ -170,11 +149,7 @@ contract MonadForkTest is Test {
         console.log("Cold EXTCODESIZE gas on fork:", gasUsed);
         console.log("Expected:", EXPECTED_COLD_ACCOUNT_GAS);
 
-        assertEq(
-            gasUsed,
-            EXPECTED_COLD_ACCOUNT_GAS,
-            "Cold EXTCODESIZE must cost 10125 (10100 + 25 overhead)"
-        );
+        assertEq(gasUsed, EXPECTED_COLD_ACCOUNT_GAS, "Cold EXTCODESIZE must cost 10125 (10100 + 25 overhead)");
     }
 
     /// @notice Test cold EXTCODEHASH uses exact Monad cost
@@ -194,18 +169,13 @@ contract MonadForkTest is Test {
         console.log("Cold EXTCODEHASH gas on fork:", gasUsed);
         console.log("Expected:", EXPECTED_COLD_ACCOUNT_GAS);
 
-        assertEq(
-            gasUsed,
-            EXPECTED_COLD_ACCOUNT_GAS,
-            "Cold EXTCODEHASH must cost 10125 (10100 + 25 overhead)"
-        );
+        assertEq(gasUsed, EXPECTED_COLD_ACCOUNT_GAS, "Cold EXTCODEHASH must cost 10125 (10100 + 25 overhead)");
     }
 
     /// @notice Test cold/warm difference is exactly 10000 (Monad) not 2500 (Ethereum)
     function test_fork_cold_warm_difference() public {
-        address target = address(
-            uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "fork_diff"))))
-        );
+        address target =
+            address(uint160(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, "fork_diff")))));
 
         uint256 gasBefore = gasleft();
         uint256 bal1 = target.balance; // Cold

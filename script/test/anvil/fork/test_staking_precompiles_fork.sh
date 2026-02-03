@@ -123,7 +123,7 @@ printf '─%.0s' {1..50}
 echo ""
 
 # Get raw result and parse first field (authAddress)
-OUTPUT=$(cast call $STAKING_ADDRESS "getValidator(uint64)(address,uint64,uint256,uint256,uint256,uint256,uint256,uint256,bytes,bytes)" $PROPOSER_VAL_ID --rpc-url $RPC_URL 2>&1)
+OUTPUT=$(cast call $STAKING_ADDRESS "getValidator(uint64)(address,uint64,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bytes,bytes)" $PROPOSER_VAL_ID --rpc-url $RPC_URL 2>&1)
 AUTH_ADDRESS=$(echo "$OUTPUT" | head -1)
 
 if [[ $? -eq 0 ]] && [[ "$AUTH_ADDRESS" != "0x0000000000000000000000000000000000000000" ]]; then
@@ -262,6 +262,129 @@ else
     echo "  Status: FAIL"
     echo "  Expected: isDone=true, nextIndex=10000"
     echo "  Got: isDone=$IS_DONE, nextIndex=$NEXT_INDEX"
+    fail
+fi
+echo ""
+
+# ============================================
+# Test getDelegators(validatorId, startDelegator) - Should return delegators for a consensus validator
+# ============================================
+echo "Test: getDelegators() returns delegators for consensus validator"
+printf '─%.0s' {1..50}
+echo ""
+
+# Use the proposer validator ID (already fetched above)
+OUTPUT=$(cast call $STAKING_ADDRESS "getDelegators(uint64,address)(bool,address,address[])" $PROPOSER_VAL_ID 0x0000000000000000000000000000000000000000 --rpc-url $RPC_URL 2>&1)
+DELS_IS_DONE=$(echo "$OUTPUT" | head -1)
+DELS_NEXT=$(echo "$OUTPUT" | sed -n '2p')
+# The array is on line 3 as [addr1, addr2, ...] — extract first address
+DELS_ARRAY_LINE=$(echo "$OUTPUT" | sed -n '3p')
+FIRST_DELEGATOR=$(echo "$DELS_ARRAY_LINE" | grep -oE '0x[0-9a-fA-F]{40}' | head -1)
+DELS_COUNT=$(echo "$DELS_ARRAY_LINE" | grep -oE '0x[0-9a-fA-F]{40}' | wc -l | tr -d ' ')
+
+if [[ $? -eq 0 ]] && [[ "$DELS_COUNT" -gt 0 ]]; then
+    echo "  Status: PASS"
+    echo "  isDone: $DELS_IS_DONE"
+    echo "  nextDelegator: $DELS_NEXT"
+    echo "  Delegators returned: $DELS_COUNT"
+    echo "  First delegator: $FIRST_DELEGATOR"
+    pass
+else
+    echo "  Status: FAIL"
+    echo "  Expected: at least one delegator for consensus validator $PROPOSER_VAL_ID"
+    echo "  Got: $OUTPUT"
+    fail
+fi
+echo ""
+
+# ============================================
+# Test getDelegations(delegator, startValId) - Should return validators for a known delegator
+# ============================================
+echo "Test: getDelegations() returns validators for a known delegator"
+printf '─%.0s' {1..50}
+echo ""
+
+# FIRST_DELEGATOR was already extracted above from getDelegators output
+
+if [[ -n "$FIRST_DELEGATOR" ]] && [[ "$FIRST_DELEGATOR" != "0x0000000000000000000000000000000000000000" ]]; then
+    OUTPUT2=$(cast call $STAKING_ADDRESS "getDelegations(address,uint64)(bool,uint64,uint64[])" $FIRST_DELEGATOR 0 --rpc-url $RPC_URL 2>&1)
+    DELEG_IS_DONE=$(echo "$OUTPUT2" | head -1)
+    DELEG_NEXT_VAL=$(echo "$OUTPUT2" | sed -n '2p' | awk '{print $1}')
+    # The array is on line 3 as [id1, id2, ...] — count entries
+    DELEG_ARRAY_LINE=$(echo "$OUTPUT2" | sed -n '3p')
+    DELEG_COUNT=$(echo "$DELEG_ARRAY_LINE" | grep -oE '[0-9]+' | wc -l | tr -d ' ')
+    # Handle empty array []
+    if [[ "$DELEG_ARRAY_LINE" == "[]" ]]; then DELEG_COUNT=0; fi
+
+    if [[ $? -eq 0 ]] && [[ "$DELEG_COUNT" -gt 0 ]]; then
+        echo "  Status: PASS"
+        echo "  Delegator: $FIRST_DELEGATOR"
+        echo "  isDone: $DELEG_IS_DONE"
+        echo "  nextValId: $DELEG_NEXT_VAL"
+        echo "  Validators delegated to: $DELEG_COUNT"
+        FIRST_VAL=$(echo "$DELEG_ARRAY_LINE" | grep -oE '[0-9]+' | head -1)
+        echo "  First validator: $FIRST_VAL"
+
+        # Verify our proposer validator is in the list
+        if echo "$DELEG_ARRAY_LINE" | grep -qE "(^|[^0-9])${PROPOSER_VAL_ID}([^0-9]|$)"; then
+            echo "  ✓ Proposer validator $PROPOSER_VAL_ID found in delegation list"
+        fi
+        pass
+    else
+        echo "  Status: FAIL"
+        echo "  Expected: at least one validator for delegator $FIRST_DELEGATOR"
+        echo "  Got: $OUTPUT2"
+        fail
+    fi
+else
+    echo "  Status: SKIP (no delegator found from previous test)"
+fi
+echo ""
+
+# ============================================
+# Test getDelegations for unknown address - Should return empty
+# ============================================
+echo "Test: getDelegations() returns empty for unknown address"
+printf '─%.0s' {1..50}
+echo ""
+
+OUTPUT3=$(cast call $STAKING_ADDRESS "getDelegations(address,uint64)(bool,uint64,uint64[])" 0x000000000000000000000000000000000000dead 0 --rpc-url $RPC_URL 2>&1)
+EMPTY_IS_DONE=$(echo "$OUTPUT3" | head -1)
+EMPTY_NEXT=$(echo "$OUTPUT3" | sed -n '2p' | awk '{print $1}')
+
+if [[ "$EMPTY_IS_DONE" == "true" ]] && [[ "$EMPTY_NEXT" == "0" ]]; then
+    echo "  Status: PASS"
+    echo "  isDone: $EMPTY_IS_DONE (correct - no delegations)"
+    echo "  nextValId: $EMPTY_NEXT"
+    pass
+else
+    echo "  Status: FAIL"
+    echo "  Expected: isDone=true, nextValId=0"
+    echo "  Got: isDone=$EMPTY_IS_DONE, nextValId=$EMPTY_NEXT"
+    fail
+fi
+echo ""
+
+# ============================================
+# Test getDelegators for non-existent validator - Should return empty
+# ============================================
+echo "Test: getDelegators() returns empty for non-existent validator"
+printf '─%.0s' {1..50}
+echo ""
+
+OUTPUT4=$(cast call $STAKING_ADDRESS "getDelegators(uint64,address)(bool,address,address[])" 999999 0x0000000000000000000000000000000000000000 --rpc-url $RPC_URL 2>&1)
+EMPTY2_IS_DONE=$(echo "$OUTPUT4" | head -1)
+EMPTY2_NEXT=$(echo "$OUTPUT4" | sed -n '2p')
+
+if [[ "$EMPTY2_IS_DONE" == "true" ]] && [[ "$EMPTY2_NEXT" == "0x0000000000000000000000000000000000000000" ]]; then
+    echo "  Status: PASS"
+    echo "  isDone: $EMPTY2_IS_DONE (correct - no delegators)"
+    echo "  nextDelegator: $EMPTY2_NEXT"
+    pass
+else
+    echo "  Status: FAIL"
+    echo "  Expected: isDone=true, nextDelegator=0x0"
+    echo "  Got: isDone=$EMPTY2_IS_DONE, nextDelegator=$EMPTY2_NEXT"
     fail
 fi
 echo ""
