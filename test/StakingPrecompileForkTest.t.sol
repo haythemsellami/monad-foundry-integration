@@ -7,8 +7,9 @@ import "../src/IStakingPrecompile.sol";
 /// @title StakingPrecompileForkTest
 /// @notice Fork-based tests for Monad staking precompile (implemented functions only)
 /// @dev Run with: MONAD_RPC_URL="your-rpc-url" forge test --match-contract StakingPrecompileForkTest -vvv
-/// @dev Tests all 10 view functions: getEpoch, getProposerValId, getValidator, getDelegator, getWithdrawalRequest,
+/// @dev Tests all 10 read functions: getEpoch, getProposerValId, getValidator, getDelegator, getWithdrawalRequest,
 /// @dev getConsensusValidatorSet, getSnapshotValidatorSet, getExecutionValidatorSet, getDelegations, getDelegators
+/// @dev Note: Read functions are NOT view — they must be called via CALL (not STATICCALL)
 contract StakingPrecompileForkTest is Test {
     address constant STAKING_ADDRESS = address(0x0000000000000000000000000000000000001000);
     IStakingPrecompile constant STAKING = IStakingPrecompile(STAKING_ADDRESS);
@@ -24,14 +25,14 @@ contract StakingPrecompileForkTest is Test {
 
     // ============ Epoch Tests ============
 
-    function testFork_GetEpoch() public view {
+    function testFork_GetEpoch() public {
         (uint64 epoch, bool inEpochDelayPeriod) = STAKING.getEpoch();
         console.log("Current epoch from fork:", epoch);
         console.log("In epoch delay period:", inEpochDelayPeriod);
         assertGt(epoch, 0, "Epoch should be > 0 on live chain");
     }
 
-    function testFork_GetProposerValId() public view {
+    function testFork_GetProposerValId() public {
         uint64 valId = STAKING.getProposerValId();
         console.log("Proposer validator ID:", valId);
         // Proposer ID should be a valid validator (>= 1)
@@ -40,14 +41,14 @@ contract StakingPrecompileForkTest is Test {
 
     // ============ Validator Info Tests ============
 
-    function testFork_GetValidator() public view {
+    function testFork_GetValidator() public {
         // Get proposer to ensure we query an existing validator
         uint64 proposerValId = STAKING.getProposerValId();
 
-        // Use raw call to avoid stack too deep with full tuple
+        // Use raw call (not staticcall) — staking precompile rejects STATICCALL
         bytes4 selector = bytes4(keccak256("getValidator(uint64)"));
         (bool success, bytes memory result) =
-            address(STAKING).staticcall(abi.encodeWithSelector(selector, proposerValId));
+            address(STAKING).call(abi.encodeWithSelector(selector, proposerValId));
 
         require(success, "getValidator call failed");
 
@@ -76,30 +77,30 @@ contract StakingPrecompileForkTest is Test {
 
     // ============ Delegator Tests ============
 
-    function testFork_GetDelegator() public view {
+    function testFork_GetDelegator() public {
         uint64 proposerValId = STAKING.getProposerValId();
 
         // Call with address(this) which has no delegation — should return zeros without reverting
         bytes4 selector = bytes4(keccak256("getDelegator(uint64,address)"));
-        (bool success,) = address(STAKING).staticcall(abi.encodeWithSelector(selector, proposerValId, address(this)));
+        (bool success,) = address(STAKING).call(abi.encodeWithSelector(selector, proposerValId, address(this)));
         assertTrue(success, "getDelegator should not revert for unknown delegator");
     }
 
     // ============ Withdrawal Request Tests ============
 
-    function testFork_GetWithdrawalRequest() public view {
+    function testFork_GetWithdrawalRequest() public {
         uint64 proposerValId = STAKING.getProposerValId();
 
         // Call with address(this) which has no withdrawal — should return zeros without reverting
         bytes4 selector = bytes4(keccak256("getWithdrawalRequest(uint64,address,uint8)"));
         (bool success,) =
-            address(STAKING).staticcall(abi.encodeWithSelector(selector, proposerValId, address(this), uint8(0)));
+            address(STAKING).call(abi.encodeWithSelector(selector, proposerValId, address(this), uint8(0)));
         assertTrue(success, "getWithdrawalRequest should not revert for unknown withdrawal");
     }
 
     // ============ Validator Set Tests ============
 
-    function testFork_GetConsensusValidatorSet() public view {
+    function testFork_GetConsensusValidatorSet() public {
         (bool isDone, uint32 nextIndex, uint64[] memory valIds) = STAKING.getConsensusValidatorSet(0);
 
         // Verify we got some validators on live chain
@@ -112,7 +113,7 @@ contract StakingPrecompileForkTest is Test {
         }
     }
 
-    function testFork_GetSnapshotValidatorSet() public view {
+    function testFork_GetSnapshotValidatorSet() public {
         (bool isDone, uint32 nextIndex, uint64[] memory valIds) = STAKING.getSnapshotValidatorSet(0);
 
         // Snapshot should have same validators as consensus (copy at epoch boundary)
@@ -120,7 +121,7 @@ contract StakingPrecompileForkTest is Test {
         assertEq(uint256(nextIndex), valIds.length, "nextIndex should equal returned count");
     }
 
-    function testFork_GetExecutionValidatorSet() public view {
+    function testFork_GetExecutionValidatorSet() public {
         (bool isDone, uint32 nextIndex, uint64[] memory valIds) = STAKING.getExecutionValidatorSet(0);
 
         // Execution set includes all validators (not just top 200)
@@ -128,7 +129,7 @@ contract StakingPrecompileForkTest is Test {
         assertEq(uint256(nextIndex), valIds.length, "nextIndex should equal returned count");
     }
 
-    function testFork_GetValidatorSet_Pagination() public view {
+    function testFork_GetValidatorSet_Pagination() public {
         // Request past the end - should get empty array with isDone=true
         (bool isDonePastEnd,, uint64[] memory valIdsPastEnd) = STAKING.getConsensusValidatorSet(10000);
         assertTrue(isDonePastEnd, "Should be done when start index >= length");
@@ -137,7 +138,7 @@ contract StakingPrecompileForkTest is Test {
 
     // ============ Delegation List Tests ============
 
-    function testFork_GetDelegations() public view {
+    function testFork_GetDelegations() public {
         // Find a validator with known delegators by using a consensus validator
         (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
         require(consensusVals.length > 0, "Need at least one consensus validator");
@@ -180,7 +181,7 @@ contract StakingPrecompileForkTest is Test {
         }
     }
 
-    function testFork_GetDelegators() public view {
+    function testFork_GetDelegators() public {
         // Use a consensus validator — should have at least one delegator
         (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
         require(consensusVals.length > 0, "Need at least one consensus validator");
@@ -207,21 +208,21 @@ contract StakingPrecompileForkTest is Test {
         }
     }
 
-    function testFork_GetDelegations_EmptyForUnknown() public view {
+    function testFork_GetDelegations_EmptyForUnknown() public {
         // An address with no delegations should return empty
         (bool isDone, uint64 nextValId, uint64[] memory valIds) = STAKING.getDelegations(address(this), 0);
         assertTrue(isDone, "Should be done for address with no delegations");
         assertEq(valIds.length, 0, "Should return empty array for address with no delegations");
     }
 
-    function testFork_GetDelegators_EmptyForUnknown() public view {
+    function testFork_GetDelegators_EmptyForUnknown() public {
         // A non-existent validator (very high ID) should return empty
         (bool isDone, address nextDelegator, address[] memory delegators) = STAKING.getDelegators(999999, address(0));
         assertTrue(isDone, "Should be done for non-existent validator");
         assertEq(delegators.length, 0, "Should return empty array for non-existent validator");
     }
 
-    function testFork_GetDelegations_Pagination() public view {
+    function testFork_GetDelegations_Pagination() public {
         // Find a delegator with known delegations
         (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
         require(consensusVals.length > 0, "Need at least one consensus validator");
@@ -250,7 +251,7 @@ contract StakingPrecompileForkTest is Test {
         }
     }
 
-    function testFork_GetDelegators_Pagination() public view {
+    function testFork_GetDelegators_Pagination() public {
         (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
         require(consensusVals.length > 0, "Need at least one consensus validator");
 
@@ -279,7 +280,7 @@ contract StakingPrecompileForkTest is Test {
 
     // ============ Validator Set Consistency Tests ============
 
-    function testFork_ValidatorSets_Consistency() public view {
+    function testFork_ValidatorSets_Consistency() public {
         // All three sets should contain valid validator IDs
         (,, uint64[] memory consensusVals) = STAKING.getConsensusValidatorSet(0);
         (,, uint64[] memory snapshotVals) = STAKING.getSnapshotValidatorSet(0);
