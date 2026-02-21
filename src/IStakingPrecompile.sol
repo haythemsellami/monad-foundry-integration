@@ -57,7 +57,7 @@ interface IStakingPrecompile {
     /// @notice Add external reward to a validator
     /// @param validatorId The validator to reward
     /// @return success Whether the reward succeeded
-    function externalReward(uint64 validatorId) external returns (bool success);
+    function externalReward(uint64 validatorId) external payable returns (bool success);
 
     // ============ Read Functions (NOT view — must be called via CALL) ============
 
