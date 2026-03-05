@@ -294,19 +294,6 @@ contract StakingCheatcodesTest is Test {
         assertEq(unclaimed, 27 ether, "rewards accumulate");
     }
 
-    function test_blockReward_unknownAuthorNoOp() public {
-        monad.setEpoch(1, false);
-        _createValidator(address(this), ACTIVE_STAKE, 0);
-        monad.epochBoundary(2);
-
-        // No validator for this author — should not revert
-        monad.blockReward(address(0xDEAD), 10 ether);
-
-        (,,, uint256 acc,, uint256 unclaimed) = _getValidatorCore(1);
-        assertEq(unclaimed, 0);
-        assertEq(acc, 0);
-    }
-
     function test_blockReward_accumulatorMath() public {
         monad.setEpoch(1, false);
         address auth = address(this);

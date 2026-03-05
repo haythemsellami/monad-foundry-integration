@@ -452,37 +452,50 @@ contract StakingEdgeCasesTest is Test {
     // T3: Revert Messages Match Expected Format
     // =========================================================================
 
-    /// @dev Assert exact revert bytes for key error cases match C++ lowercase format.
-    function test_revertMessages_matchExpectedFormat() public {
+    /// @dev "unknown validator" — delegate to non-existent validator.
+    function test_revertMessage_delegateUnknownValidator() public {
         monad.setEpoch(1, false);
-        uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
-
-        // "unknown validator" — delegate to non-existent
+        _createValidator(address(this), ACTIVE_STAKE, 0);
         vm.deal(address(this), 1 ether);
         (bool success, bytes memory ret) = address(STAKING).call{value: 1 ether}(
             abi.encodeWithSelector(IStakingPrecompile.delegate.selector, uint64(999))
         );
         assertFalse(success);
         assertEq(string(ret), "unknown validator", "delegate unknown validator msg");
+    }
 
-        // "delegation is too small" — below dust threshold
+    /// @dev "delegation is too small" — below dust threshold.
+    function test_revertMessage_delegateDust() public {
+        monad.setEpoch(1, false);
+        uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
+
         address delegator = address(0xD3);
         vm.deal(delegator, 100);
         vm.prank(delegator);
-        (success, ret) = address(STAKING).call{value: 100}(
+        (bool success, bytes memory ret) = address(STAKING).call{value: 100}(
             abi.encodeWithSelector(IStakingPrecompile.delegate.selector, valId)
         );
         assertFalse(success);
         assertEq(string(ret), "delegation is too small", "delegate dust msg");
+    }
 
-        // "commission too high"
-        (success, ret) = address(STAKING).call(
+    /// @dev "commission too high" on changeCommission.
+    function test_revertMessage_commissionTooHigh() public {
+        monad.setEpoch(1, false);
+        uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
+
+        (bool success, bytes memory ret) = address(STAKING).call(
             abi.encodeWithSelector(IStakingPrecompile.changeCommission.selector, valId, uint256(1e18 + 1))
         );
         assertFalse(success);
         assertEq(string(ret), "commission too high", "commission msg");
+    }
 
-        // "withdrawal id exists" — duplicate withdrawal
+    /// @dev "withdrawal id exists" — duplicate undelegate withdrawId.
+    function test_revertMessage_withdrawalIdExists() public {
+        monad.setEpoch(1, false);
+        uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
+
         monad.epochBoundary(2);
         address del2 = address(0xD4);
         vm.deal(del2, 2000 ether);
@@ -492,7 +505,7 @@ contract StakingEdgeCasesTest is Test {
         vm.prank(del2);
         STAKING.undelegate(valId, 1000 ether, 0);
         vm.prank(del2);
-        (success, ret) = address(STAKING).call(
+        (bool success, bytes memory ret) = address(STAKING).call(
             abi.encodeWithSelector(IStakingPrecompile.undelegate.selector, valId, uint256(500 ether), uint8(0))
         );
         assertFalse(success);
