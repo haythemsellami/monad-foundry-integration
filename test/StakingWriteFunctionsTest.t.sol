@@ -31,11 +31,7 @@ contract StakingWriteFunctionsTest is Test {
 
     /// @dev Build addValidator payload.
     /// Layout: secp_pubkey(33) + bls_pubkey(48) + auth_address(20) + stake(32) + commission(32) = 165 bytes.
-    function _buildPayload(address auth, uint256 stake, uint256 commission)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _buildPayload(address auth, uint256 stake, uint256 commission) internal pure returns (bytes memory) {
         bytes memory secp = new bytes(33);
         bytes memory bls = new bytes(48);
         for (uint256 i = 0; i < 20; i++) {
@@ -45,10 +41,7 @@ contract StakingWriteFunctionsTest is Test {
     }
 
     /// @dev Create a validator. Deals balance to this contract and calls addValidator.
-    function _createValidator(address auth, uint256 stake, uint256 commission)
-        internal
-        returns (uint64)
-    {
+    function _createValidator(address auth, uint256 stake, uint256 commission) internal returns (uint64) {
         bytes memory payload = _buildPayload(auth, stake, commission);
         bytes memory dummySig64 = new bytes(64);
         bytes memory dummySig96 = new bytes(96);
@@ -68,8 +61,8 @@ contract StakingWriteFunctionsTest is Test {
             uint256 unclaimedRewards
         )
     {
-        (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+        (bool ok, bytes memory ret) = address(STAKING)
+            .call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
         require(ok, "getValidator failed");
         (authAddress, flags, stake, accRewardPerToken, commission, unclaimedRewards) =
             abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
@@ -99,7 +92,7 @@ contract StakingWriteFunctionsTest is Test {
         (bool ok, bytes memory ret) =
             address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getDelegator.selector, valId, delegator));
         require(ok, "getDelegator failed");
-        (stake, accRewardPerToken, unclaimedRewards,,,, ) =
+        (stake, accRewardPerToken, unclaimedRewards,,,,) =
             abi.decode(ret, (uint256, uint256, uint256, uint256, uint256, uint64, uint64));
     }
 
@@ -588,11 +581,7 @@ contract StakingWriteFunctionsTest is Test {
                 found = true;
                 // topic[1] = valId, topic[2] = delegator address
                 assertEq(uint256(logs[i].topics[1]), uint256(valId), "event valId mismatch");
-                assertEq(
-                    address(uint160(uint256(logs[i].topics[2]))),
-                    delegator,
-                    "event delegator mismatch"
-                );
+                assertEq(address(uint160(uint256(logs[i].topics[2]))), delegator, "event delegator mismatch");
                 break;
             }
         }

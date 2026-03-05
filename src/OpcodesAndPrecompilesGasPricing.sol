@@ -193,7 +193,8 @@ contract OpcodesAndPrecompilesGasPricing {
             hex"0000000000000000000000000000000000000000000000000000000000000000"
             hex"0000000000000000000000000000000000000000000000000000000000000000" // t[0]
             hex"0300000000000000" // t[1]
-            hex"0000000000000000" hex"01"; // f (final block)
+            hex"0000000000000000" // f (final block)
+            hex"01";
 
         (bool success, bytes memory result) = address(0x09).staticcall(input);
         require(success, "blake2f failed");

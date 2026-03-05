@@ -47,8 +47,7 @@ contract StakingPrecompileForkTest is Test {
 
         // Use raw call (not staticcall) — staking precompile rejects STATICCALL
         bytes4 selector = bytes4(keccak256("getValidator(uint64)"));
-        (bool success, bytes memory result) =
-            address(STAKING).call(abi.encodeWithSelector(selector, proposerValId));
+        (bool success, bytes memory result) = address(STAKING).call(abi.encodeWithSelector(selector, proposerValId));
 
         require(success, "getValidator call failed");
 
