@@ -4,8 +4,14 @@ permissions: {}
 
 on:
   push:
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
+
+# Cancel redundant runs: if a PR exists, skip the push-triggered run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   FOUNDRY_PROFILE: ci
@@ -24,6 +30,8 @@ jobs:
 
       - name: Install Foundry
         uses: category-labs/foundry-toolchain@master
+        with:
+          version: v1.5.0-monad.0.2.0
 
       - name: Show Forge version
         run: forge --version
@@ -34,5 +42,7 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Run Forge tests
-        run: forge test -vvv
+      - name: Run all tests
+        run: ./script/run_all_tests.sh
+        env:
+          MONAD_RPC_URL: ${{ secrets.MONAD_RPC_URL }}
