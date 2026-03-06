@@ -76,6 +76,7 @@ for script in "$PROJECT_ROOT"/script/test/chisel/*.sh; do
         echo -e "  ${RED}✗${NC} $script_name"
         ((FAILED++))
         FAILED_TESTS+=("chisel: $script_name")
+        tail -20 /tmp/chisel_test_output.txt
     fi
 done
 
@@ -111,6 +112,7 @@ for script in "$PROJECT_ROOT"/script/test/anvil/*.sh; do
         echo -e "  ${RED}✗${NC} $script_name"
         ((FAILED++))
         FAILED_TESTS+=("anvil: $script_name")
+        tail -20 /tmp/anvil_test_output.txt
     fi
 done
 
@@ -139,8 +141,7 @@ for script in "$PROJECT_ROOT"/script/test/anvil/fork/*.sh; do
         echo -e "  ${RED}✗${NC} $script_name"
         ((FAILED++))
         FAILED_TESTS+=("anvil-fork: $script_name")
-        # Show last 20 lines of output on failure for debugging
-        # tail -20 /tmp/anvil_fork_test_output.txt
+        tail -20 /tmp/anvil_fork_test_output.txt
     fi
 done
 
