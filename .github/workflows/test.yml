@@ -4,8 +4,14 @@ permissions: {}
 
 on:
   push:
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
+
+# Cancel redundant runs: if a PR exists, skip the push-triggered run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   FOUNDRY_PROFILE: ci
