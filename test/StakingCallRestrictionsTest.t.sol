@@ -82,9 +82,8 @@ contract StakingCallRestrictionsTest is Test {
 
         // STATICCALL to caller.forwardCallToStaking → caller does CALL to 0x1000
         // The inner CALL inherits is_static=true from the STATICCALL frame
-        (bool outerSuccess, bytes memory returnData) = address(caller).staticcall(
-            abi.encodeWithSelector(StakingCaller.forwardCallToStaking.selector, getEpochData)
-        );
+        (bool outerSuccess, bytes memory returnData) = address(caller)
+            .staticcall(abi.encodeWithSelector(StakingCaller.forwardCallToStaking.selector, getEpochData));
         // The outer STATICCALL succeeds (helper catches the error),
         // but the inner CALL to staking was rejected
         assertTrue(outerSuccess, "Outer STATICCALL to helper should succeed");

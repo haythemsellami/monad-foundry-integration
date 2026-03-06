@@ -16,11 +16,7 @@ contract StakingLifecycleTest is Test {
 
     uint256 constant ACTIVE_STAKE = 10_000_000 ether;
 
-    function _buildPayload(address auth, uint256 stake, uint256 commission)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _buildPayload(address auth, uint256 stake, uint256 commission) internal pure returns (bytes memory) {
         bytes memory secp = new bytes(33);
         bytes memory bls = new bytes(48);
         for (uint256 i = 0; i < 20; i++) {
@@ -29,19 +25,13 @@ contract StakingLifecycleTest is Test {
         return abi.encodePacked(secp, bls, auth, stake, commission);
     }
 
-    function _createValidator(address auth, uint256 stake, uint256 commission)
-        internal
-        returns (uint64)
-    {
+    function _createValidator(address auth, uint256 stake, uint256 commission) internal returns (uint64) {
         bytes memory payload = _buildPayload(auth, stake, commission);
         vm.deal(address(this), stake);
         return STAKING.addValidator{value: stake}(payload, new bytes(64), new bytes(96));
     }
 
-    function _getValidatorCore(uint64 valId)
-        internal
-        returns (address, uint64, uint256, uint256, uint256, uint256)
-    {
+    function _getValidatorCore(uint64 valId) internal returns (address, uint64, uint256, uint256, uint256, uint256) {
         (bool ok, bytes memory ret) =
             address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
         require(ok, "getValidator failed");
@@ -161,8 +151,8 @@ contract StakingLifecycleTest is Test {
 
         address auth1 = address(0xB1);
         address auth2 = address(0xB2);
-        uint64 valId1 = _createValidator(auth1, ACTIVE_STAKE, 0.1e18);  // 10% commission
-        uint64 valId2 = _createValidator(auth2, ACTIVE_STAKE, 0.2e18);  // 20% commission
+        uint64 valId1 = _createValidator(auth1, ACTIVE_STAKE, 0.1e18); // 10% commission
+        uint64 valId2 = _createValidator(auth2, ACTIVE_STAKE, 0.2e18); // 20% commission
 
         monad.epochBoundary(2);
 

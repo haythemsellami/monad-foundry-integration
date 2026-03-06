@@ -18,11 +18,7 @@ contract StakingCheatcodesTest is Test {
 
     uint256 constant ACTIVE_STAKE = 10_000_000 ether;
 
-    function _buildPayload(address auth, uint256 stake, uint256 commission)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _buildPayload(address auth, uint256 stake, uint256 commission) internal pure returns (bytes memory) {
         bytes memory secp = new bytes(33);
         bytes memory bls = new bytes(48);
         for (uint256 i = 0; i < 20; i++) {
@@ -31,10 +27,7 @@ contract StakingCheatcodesTest is Test {
         return abi.encodePacked(secp, bls, auth, stake, commission);
     }
 
-    function _createValidator(address auth, uint256 stake, uint256 commission)
-        internal
-        returns (uint64)
-    {
+    function _createValidator(address auth, uint256 stake, uint256 commission) internal returns (uint64) {
         bytes memory payload = _buildPayload(auth, stake, commission);
         vm.deal(address(this), stake);
         return STAKING.addValidator{value: stake}(payload, new bytes(64), new bytes(96));
@@ -42,10 +35,17 @@ contract StakingCheatcodesTest is Test {
 
     function _getValidatorCore(uint64 valId)
         internal
-        returns (address authAddress, uint64 flags, uint256 stake, uint256 accRewardPerToken, uint256 commission, uint256 unclaimedRewards)
+        returns (
+            address authAddress,
+            uint64 flags,
+            uint256 stake,
+            uint256 accRewardPerToken,
+            uint256 commission,
+            uint256 unclaimedRewards
+        )
     {
-        (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+        (bool ok, bytes memory ret) = address(STAKING)
+            .call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
         require(ok, "getValidator failed");
         (authAddress, flags, stake, accRewardPerToken, commission, unclaimedRewards) =
             abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
