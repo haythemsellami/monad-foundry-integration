@@ -141,7 +141,7 @@ for script in "$PROJECT_ROOT"/script/test/anvil/fork/*.sh; do
         echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil-fork: $script_name")
-        tail -20 /tmp/anvil_fork_test_output.txt
+        cat /tmp/anvil_fork_test_output.txt
     fi
 done
 
