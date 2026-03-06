@@ -29,10 +29,10 @@ check_gas() {
     local name="$1" actual="$2" min="$3" max="$4" eth="$5"
     if [[ $actual -ge $min && $actual -le $max ]]; then
         echo -e "  ${GREEN}✓${NC} $name: $actual gas (Monad: $min-$max, ETH: ~$eth)"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $name: $actual gas (Monad: $min-$max, ETH: ~$eth)"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
 }
 

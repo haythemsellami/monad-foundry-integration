@@ -71,10 +71,10 @@ for script in "$PROJECT_ROOT"/script/test/chisel/*.sh; do
 
     if "$script" &>/tmp/chisel_test_output.txt; then
         echo -e "  ${GREEN}✓${NC} $script_name"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $script_name"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         FAILED_TESTS+=("chisel: $script_name")
         tail -20 /tmp/chisel_test_output.txt
     fi
@@ -107,10 +107,10 @@ for script in "$PROJECT_ROOT"/script/test/anvil/*.sh; do
 
     if "$script" &>/tmp/anvil_test_output.txt; then
         echo -e "  ${GREEN}✓${NC} $script_name"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $script_name"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil: $script_name")
         tail -20 /tmp/anvil_test_output.txt
     fi
@@ -136,10 +136,10 @@ for script in "$PROJECT_ROOT"/script/test/anvil/fork/*.sh; do
 
     if MONAD_RPC_URL="$MONAD_RPC_URL" "$script" &>/tmp/anvil_fork_test_output.txt; then
         echo -e "  ${GREEN}✓${NC} $script_name"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $script_name"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil-fork: $script_name")
         tail -20 /tmp/anvil_fork_test_output.txt
     fi

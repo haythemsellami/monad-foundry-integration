@@ -93,10 +93,10 @@ test_opcode() {
 
     if [ "$gas" -gt "$threshold" ]; then
         echo "  Status: PASS"
-        ((PASS_COUNT++))
+        PASS_COUNT=$((PASS_COUNT + 1))
     else
         echo "  Status: FAIL - gas too low"
-        ((FAIL_COUNT++))
+        FAIL_COUNT=$((FAIL_COUNT + 1))
     fi
     echo ""
 }
@@ -189,10 +189,10 @@ test_precompile() {
     # Pass if execution gas includes the Monad precompile cost
     if [ "$exec_gas" -ge "$monad_cost" ]; then
         echo "  Status: PASS (exec_gas >= monad_cost)"
-        ((PASS_COUNT++))
+        PASS_COUNT=$((PASS_COUNT + 1))
     else
         echo "  Status: FAIL (exec_gas < monad_cost, likely using Ethereum pricing)"
-        ((FAIL_COUNT++))
+        FAIL_COUNT=$((FAIL_COUNT + 1))
     fi
     echo ""
 }
