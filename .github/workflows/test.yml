@@ -36,7 +36,7 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Run Forge tests
-        run: forge test -vvv
+      - name: Run all tests
+        run: ./script/run_all_tests.sh
         env:
           MONAD_RPC_URL: ${{ secrets.MONAD_RPC_URL }}
