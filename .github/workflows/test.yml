@@ -38,3 +38,5 @@ jobs:
 
       - name: Run Forge tests
         run: forge test -vvv
+        env:
+          MONAD_RPC_URL: ${{ secrets.MONAD_RPC_URL }}

@@ -24,8 +24,8 @@ contract MonadForkTest is Test {
     uint256 constant EXPECTED_WARM_SLOAD_GAS = WARM_ACCESS_COST + SLOAD_MEASUREMENT_OVERHEAD;
     uint256 constant EXPECTED_WARM_ACCOUNT_GAS = WARM_ACCESS_COST + ACCOUNT_MEASUREMENT_OVERHEAD;
 
-    // Monad mainnet RPC
-    string constant MONAD_RPC_URL = "https://rpc.monad.xyz";
+    // Monad mainnet RPC (override via MONAD_RPC_URL env var or .env file)
+    string constant DEFAULT_MONAD_RPC_URL = "https://rpc.monad.xyz";
 
     // ShMonad vault address on Monad mainnet
     address constant SHMONAD_VAULT = 0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c;
@@ -41,7 +41,8 @@ contract MonadForkTest is Test {
 
     function setUp() public {
         // Fork from Monad mainnet at specific block
-        forkId = vm.createSelectFork(MONAD_RPC_URL, FORK_BLOCK_NUMBER);
+        string memory rpcUrl = vm.envOr("MONAD_RPC_URL", DEFAULT_MONAD_RPC_URL);
+        forkId = vm.createSelectFork(rpcUrl, FORK_BLOCK_NUMBER);
     }
 
     // =========================================================================
