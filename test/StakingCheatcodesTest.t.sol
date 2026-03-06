@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/IStakingPrecompile.sol";
-import "../src/IMonadVm.sol";
+import {IMonadStaking} from "monad-std/interfaces/IMonadStaking.sol";
+import {MonadVm} from "monad-std/MonadVm.sol";
 
 /// @title StakingCheatcodesTest
 /// @notice Tests all 7 Monad cheatcodes:
@@ -13,8 +13,8 @@ import "../src/IMonadVm.sol";
 ///      the standard Foundry CHEATCODE_ADDRESS. They provide test control over consensus-layer
 ///      state that the staking precompile does not expose through its public interface.
 contract StakingCheatcodesTest is Test {
-    IStakingPrecompile constant STAKING = IStakingPrecompile(address(0x1000));
-    IMonadVm constant monad = IMonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
+    IMonadStaking constant STAKING = IMonadStaking(address(0x1000));
+    MonadVm constant monad = MonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
 
     uint256 constant ACTIVE_STAKE = 10_000_000 ether;
 
@@ -45,7 +45,7 @@ contract StakingCheatcodesTest is Test {
         )
     {
         (bool ok, bytes memory ret) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+            .call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, valId));
         require(ok, "getValidator failed");
         (authAddress, flags, stake, accRewardPerToken, commission, unclaimedRewards) =
             abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
@@ -56,7 +56,7 @@ contract StakingCheatcodesTest is Test {
         returns (uint256 consensusStake, uint256 consensusCommission, uint256 snapshotStake, uint256 snapshotCommission)
     {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, valId));
         require(ok, "getValidator failed");
         assembly {
             consensusStake := mload(add(ret, 224))

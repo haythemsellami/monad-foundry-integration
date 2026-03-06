@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/IStakingPrecompile.sol";
+import {IMonadStaking} from "monad-std/interfaces/IMonadStaking.sol";
 
 /// @title StakingPrecompileForkTest
 /// @notice Fork-based tests for Monad staking precompile (implemented functions only)
@@ -12,7 +12,7 @@ import "../src/IStakingPrecompile.sol";
 /// @dev Note: Read functions are NOT view — they must be called via CALL (not STATICCALL)
 contract StakingPrecompileForkTest is Test {
     address constant STAKING_ADDRESS = address(0x0000000000000000000000000000000000001000);
-    IStakingPrecompile constant STAKING = IStakingPrecompile(STAKING_ADDRESS);
+    IMonadStaking constant STAKING = IMonadStaking(STAKING_ADDRESS);
 
     // Default Monad RPC URL
     string constant DEFAULT_MONAD_RPC_URL = "https://rpc.monad.xyz";

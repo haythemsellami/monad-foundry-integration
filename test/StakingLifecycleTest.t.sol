@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/IStakingPrecompile.sol";
-import "../src/IMonadVm.sol";
+import {IMonadStaking} from "monad-std/interfaces/IMonadStaking.sol";
+import {MonadVm} from "monad-std/MonadVm.sol";
 
 /// @title StakingLifecycleTest
 /// @notice End-to-end lifecycle scenarios combining write functions and syscall cheatcodes.
@@ -11,8 +11,8 @@ import "../src/IMonadVm.sol";
 ///      validator creation → delegation → epoch lifecycle → reward distribution →
 ///      claim/compound → undelegation → withdrawal.
 contract StakingLifecycleTest is Test {
-    IStakingPrecompile constant STAKING = IStakingPrecompile(address(0x1000));
-    IMonadVm constant monad = IMonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
+    IMonadStaking constant STAKING = IMonadStaking(address(0x1000));
+    MonadVm constant monad = MonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
 
     uint256 constant ACTIVE_STAKE = 10_000_000 ether;
 
@@ -33,7 +33,7 @@ contract StakingLifecycleTest is Test {
 
     function _getValidatorCore(uint64 valId) internal returns (address, uint64, uint256, uint256, uint256, uint256) {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, valId));
         require(ok, "getValidator failed");
         return abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
     }
@@ -43,7 +43,7 @@ contract StakingLifecycleTest is Test {
         returns (uint256 stake, uint256 accRewardPerToken, uint256 unclaimedRewards)
     {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getDelegator.selector, valId, delegator));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getDelegator.selector, valId, delegator));
         require(ok, "getDelegator failed");
         (stake, accRewardPerToken, unclaimedRewards,,,,) =
             abi.decode(ret, (uint256, uint256, uint256, uint256, uint256, uint64, uint64));
