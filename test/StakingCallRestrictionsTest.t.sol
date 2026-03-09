@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/IStakingPrecompile.sol";
+import {IMonadStaking} from "monad-std/interfaces/IMonadStaking.sol";
 
 /// @title StakingCallRestrictionsTest
 /// @notice Tests that the staking precompile (0x1000) enforces call restrictions
@@ -14,7 +14,7 @@ import "../src/IStakingPrecompile.sol";
 contract StakingCallRestrictionsTest is Test {
     address constant STAKING_ADDRESS = address(0x0000000000000000000000000000000000001000);
 
-    bytes getEpochData = abi.encodeWithSelector(IStakingPrecompile.getEpoch.selector);
+    bytes getEpochData = abi.encodeWithSelector(IMonadStaking.getEpoch.selector);
 
     // ============ Regular CALL (accepted) ============
 
@@ -95,10 +95,10 @@ contract StakingCallRestrictionsTest is Test {
 
     function test_delegatecallRejectedForAllSelectors() public {
         bytes[4] memory selectors = [
-            abi.encodeWithSelector(IStakingPrecompile.getEpoch.selector),
-            abi.encodeWithSelector(IStakingPrecompile.getProposerValId.selector),
-            abi.encodeWithSelector(IStakingPrecompile.getConsensusValidatorSet.selector, uint32(0)),
-            abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, uint64(1))
+            abi.encodeWithSelector(IMonadStaking.getEpoch.selector),
+            abi.encodeWithSelector(IMonadStaking.getProposerValId.selector),
+            abi.encodeWithSelector(IMonadStaking.getConsensusValidatorSet.selector, uint32(0)),
+            abi.encodeWithSelector(IMonadStaking.getValidator.selector, uint64(1))
         ];
 
         for (uint256 i = 0; i < selectors.length; i++) {

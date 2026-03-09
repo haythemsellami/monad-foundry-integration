@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/IStakingPrecompile.sol";
-import "../src/IMonadVm.sol";
+import {IMonadStaking} from "monad-std/interfaces/IMonadStaking.sol";
+import {MonadVm} from "monad-std/MonadVm.sol";
 
 /// @title StakingEdgeCasesTest
 /// @notice Edge cases and error conditions for the staking precompile:
@@ -11,8 +11,8 @@ import "../src/IMonadVm.sol";
 ///         duplicate validators, insufficient balance, dust threshold,
 ///         and withdrawal timing constraints.
 contract StakingEdgeCasesTest is Test {
-    IStakingPrecompile constant STAKING = IStakingPrecompile(address(0x1000));
-    IMonadVm constant monad = IMonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
+    IMonadStaking constant STAKING = IMonadStaking(address(0x1000));
+    MonadVm constant monad = MonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
 
     uint256 constant ACTIVE_STAKE = 10_000_000 ether;
     uint256 constant MIN_AUTH_STAKE = 100_000 ether;
@@ -34,7 +34,7 @@ contract StakingEdgeCasesTest is Test {
 
     function _getValidatorCore(uint64 valId) internal returns (address, uint64, uint256, uint256, uint256, uint256) {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, valId));
         require(ok, "getValidator failed");
         return abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
     }
@@ -52,7 +52,7 @@ contract StakingEdgeCasesTest is Test {
 
         vm.deal(address(this), 1 ether);
         (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.undelegate.selector, valId, uint256(0), uint8(0))
+            abi.encodeWithSelector(IMonadStaking.undelegate.selector, valId, uint256(0), uint8(0))
         );
         assertFalse(success, "undelegate with value should revert");
     }
@@ -61,7 +61,7 @@ contract StakingEdgeCasesTest is Test {
         monad.setEpoch(1, false);
         vm.deal(address(this), 1 ether);
         (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.withdraw.selector, uint64(1), uint8(0))
+            abi.encodeWithSelector(IMonadStaking.withdraw.selector, uint64(1), uint8(0))
         );
         assertFalse(success, "withdraw with value should revert");
     }
@@ -72,7 +72,7 @@ contract StakingEdgeCasesTest is Test {
 
         vm.deal(address(this), 1 ether);
         (bool success,) =
-            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IStakingPrecompile.compound.selector, valId));
+            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IMonadStaking.compound.selector, valId));
         assertFalse(success, "compound with value should revert");
     }
 
@@ -81,9 +81,8 @@ contract StakingEdgeCasesTest is Test {
         uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
 
         vm.deal(address(this), 1 ether);
-        (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.claimRewards.selector, valId)
-        );
+        (bool success,) =
+            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IMonadStaking.claimRewards.selector, valId));
         assertFalse(success, "claimRewards with value should revert");
     }
 
@@ -93,15 +92,14 @@ contract StakingEdgeCasesTest is Test {
 
         vm.deal(address(this), 1 ether);
         (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.changeCommission.selector, valId, uint256(0))
+            abi.encodeWithSelector(IMonadStaking.changeCommission.selector, valId, uint256(0))
         );
         assertFalse(success, "changeCommission with value should revert");
     }
 
     function test_payability_readFunctionsRejectValue() public {
         vm.deal(address(this), 1 ether);
-        (bool success,) =
-            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IStakingPrecompile.getEpoch.selector));
+        (bool success,) = address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IMonadStaking.getEpoch.selector));
         assertFalse(success, "getEpoch with value should revert");
     }
 
@@ -129,7 +127,7 @@ contract StakingEdgeCasesTest is Test {
     function test_readFunction_nonExistentValidator() public {
         // Query a validator that doesn't exist — should succeed with zero values
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, uint64(999)));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, uint64(999)));
         assertTrue(ok, "getValidator for non-existent should not revert");
         (address auth,,,,,) = abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
         assertEq(auth, address(0), "non-existent validator has zero auth");
@@ -148,7 +146,7 @@ contract StakingEdgeCasesTest is Test {
         address notAuth = address(0xBB);
         vm.prank(notAuth);
         (bool success,) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.changeCommission.selector, valId, uint256(0.5e18)));
+            .call(abi.encodeWithSelector(IMonadStaking.changeCommission.selector, valId, uint256(0.5e18)));
         assertFalse(success, "non-auth should not change commission");
     }
 
@@ -176,7 +174,7 @@ contract StakingEdgeCasesTest is Test {
         bytes memory payload = _buildPayload(auth, ACTIVE_STAKE, 0);
         vm.deal(address(this), ACTIVE_STAKE);
         (bool success,) = address(STAKING).call{value: ACTIVE_STAKE}(
-            abi.encodeWithSelector(IStakingPrecompile.addValidator.selector, payload, new bytes(64), new bytes(96))
+            abi.encodeWithSelector(IMonadStaking.addValidator.selector, payload, new bytes(64), new bytes(96))
         );
         assertFalse(success, "duplicate auth address should revert");
     }
@@ -192,7 +190,7 @@ contract StakingEdgeCasesTest is Test {
         bytes memory payload = _buildPayload(address(0xDD), tooLow, 0);
         vm.deal(address(this), tooLow);
         (bool success,) = address(STAKING).call{value: tooLow}(
-            abi.encodeWithSelector(IStakingPrecompile.addValidator.selector, payload, new bytes(64), new bytes(96))
+            abi.encodeWithSelector(IMonadStaking.addValidator.selector, payload, new bytes(64), new bytes(96))
         );
         assertFalse(success, "below min auth stake should revert");
     }
@@ -203,7 +201,7 @@ contract StakingEdgeCasesTest is Test {
         bytes memory payload = _buildPayload(address(0xDD), 200_000 ether, 0);
         vm.deal(address(this), MIN_AUTH_STAKE);
         (bool success,) = address(STAKING).call{value: MIN_AUTH_STAKE}(
-            abi.encodeWithSelector(IStakingPrecompile.addValidator.selector, payload, new bytes(64), new bytes(96))
+            abi.encodeWithSelector(IMonadStaking.addValidator.selector, payload, new bytes(64), new bytes(96))
         );
         assertFalse(success, "value != signed_stake should revert");
     }
@@ -220,7 +218,7 @@ contract StakingEdgeCasesTest is Test {
         // Try to undelegate more than staked
         vm.prank(delegator);
         (bool success,) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.undelegate.selector, valId, uint256(2000 ether), uint8(0)));
+            .call(abi.encodeWithSelector(IMonadStaking.undelegate.selector, valId, uint256(2000 ether), uint8(0)));
         assertFalse(success, "cannot undelegate more than staked");
     }
 
@@ -235,7 +233,7 @@ contract StakingEdgeCasesTest is Test {
         bytes memory payload = _buildPayload(address(0xEE), ACTIVE_STAKE, tooHigh);
         vm.deal(address(this), ACTIVE_STAKE);
         (bool success,) = address(STAKING).call{value: ACTIVE_STAKE}(
-            abi.encodeWithSelector(IStakingPrecompile.addValidator.selector, payload, new bytes(64), new bytes(96))
+            abi.encodeWithSelector(IMonadStaking.addValidator.selector, payload, new bytes(64), new bytes(96))
         );
         assertFalse(success, "commission > 100% should revert");
     }
@@ -245,7 +243,7 @@ contract StakingEdgeCasesTest is Test {
         uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
 
         (bool success,) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.changeCommission.selector, valId, uint256(1e18 + 1)));
+            .call(abi.encodeWithSelector(IMonadStaking.changeCommission.selector, valId, uint256(1e18 + 1)));
         assertFalse(success, "changeCommission > 100% should revert");
     }
 
@@ -262,7 +260,7 @@ contract StakingEdgeCasesTest is Test {
         vm.deal(delegator, 1e9 - 1);
         vm.prank(delegator);
         (bool success,) =
-            address(STAKING).call{value: 1e9 - 1}(abi.encodeWithSelector(IStakingPrecompile.delegate.selector, valId));
+            address(STAKING).call{value: 1e9 - 1}(abi.encodeWithSelector(IMonadStaking.delegate.selector, valId));
         assertFalse(success, "delegation below dust threshold should revert");
     }
 
@@ -301,7 +299,7 @@ contract StakingEdgeCasesTest is Test {
         // Try to withdraw immediately (epoch 2, need epoch > 4)
         vm.prank(delegator);
         (bool success,) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.withdraw.selector, valId, uint8(0)));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.withdraw.selector, valId, uint8(0)));
         assertFalse(success, "withdraw before delay should revert");
     }
 
@@ -311,7 +309,7 @@ contract StakingEdgeCasesTest is Test {
 
         // Try to withdraw a non-existent withdrawal ID
         (bool success,) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.withdraw.selector, valId, uint8(42)));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.withdraw.selector, valId, uint8(42)));
         assertFalse(success, "withdraw non-existent ID should revert");
     }
 
@@ -338,7 +336,7 @@ contract StakingEdgeCasesTest is Test {
         // Second undelegate with same withdrawId=0 should fail
         vm.prank(delegator);
         (bool success,) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.undelegate.selector, valId, uint256(500 ether), uint8(0)));
+            .call(abi.encodeWithSelector(IMonadStaking.undelegate.selector, valId, uint256(500 ether), uint8(0)));
         assertFalse(success, "duplicate withdrawal ID should revert");
     }
 
@@ -349,23 +347,22 @@ contract StakingEdgeCasesTest is Test {
     function test_delegate_unknownValidator() public {
         monad.setEpoch(1, false);
         vm.deal(address(this), 1 ether);
-        (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.delegate.selector, uint64(999))
-        );
+        (bool success,) =
+            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IMonadStaking.delegate.selector, uint64(999)));
         assertFalse(success, "delegate to non-existent validator should revert");
     }
 
     function test_undelegate_unknownValidator() public {
         monad.setEpoch(1, false);
         (bool success,) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.undelegate.selector, uint64(999), uint256(100), uint8(0)));
+            .call(abi.encodeWithSelector(IMonadStaking.undelegate.selector, uint64(999), uint256(100), uint8(0)));
         assertFalse(success, "undelegate from non-existent validator should revert");
     }
 
     function test_changeCommission_unknownValidator() public {
         monad.setEpoch(1, false);
         (bool success,) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.changeCommission.selector, uint64(999), uint256(0.1e18)));
+            .call(abi.encodeWithSelector(IMonadStaking.changeCommission.selector, uint64(999), uint256(0.1e18)));
         assertFalse(success, "changeCommission on non-existent validator should revert");
     }
 
@@ -381,9 +378,8 @@ contract StakingEdgeCasesTest is Test {
 
         // Below MIN_EXTERNAL_REWARD (1e9)
         vm.deal(address(this), 1e9 - 1);
-        (bool success,) = address(STAKING).call{value: 1e9 - 1}(
-            abi.encodeWithSelector(IStakingPrecompile.externalReward.selector, valId)
-        );
+        (bool success,) =
+            address(STAKING).call{value: 1e9 - 1}(abi.encodeWithSelector(IMonadStaking.externalReward.selector, valId));
         assertFalse(success, "external reward below minimum should revert");
     }
 
@@ -393,9 +389,8 @@ contract StakingEdgeCasesTest is Test {
         uint64 valId = _createValidator(address(0xF2), MIN_AUTH_STAKE, 0);
 
         vm.deal(address(this), 1 ether);
-        (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.externalReward.selector, valId)
-        );
+        (bool success,) =
+            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IMonadStaking.externalReward.selector, valId));
         assertFalse(success, "external reward to non-active validator should revert");
     }
 
@@ -422,7 +417,7 @@ contract StakingEdgeCasesTest is Test {
         bytes memory shortPayload = new bytes(100);
         vm.deal(address(this), ACTIVE_STAKE);
         (bool success,) = address(STAKING).call{value: ACTIVE_STAKE}(
-            abi.encodeWithSelector(IStakingPrecompile.addValidator.selector, shortPayload, new bytes(64), new bytes(96))
+            abi.encodeWithSelector(IMonadStaking.addValidator.selector, shortPayload, new bytes(64), new bytes(96))
         );
         assertFalse(success, "short payload should revert");
     }
@@ -436,9 +431,8 @@ contract StakingEdgeCasesTest is Test {
         monad.setEpoch(1, false);
         _createValidator(address(this), ACTIVE_STAKE, 0);
         vm.deal(address(this), 1 ether);
-        (bool success, bytes memory ret) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.delegate.selector, uint64(999))
-        );
+        (bool success, bytes memory ret) =
+            address(STAKING).call{value: 1 ether}(abi.encodeWithSelector(IMonadStaking.delegate.selector, uint64(999)));
         assertFalse(success);
         assertEq(string(ret), "unknown validator", "delegate unknown validator msg");
     }
@@ -452,7 +446,7 @@ contract StakingEdgeCasesTest is Test {
         vm.deal(delegator, 100);
         vm.prank(delegator);
         (bool success, bytes memory ret) =
-            address(STAKING).call{value: 100}(abi.encodeWithSelector(IStakingPrecompile.delegate.selector, valId));
+            address(STAKING).call{value: 100}(abi.encodeWithSelector(IMonadStaking.delegate.selector, valId));
         assertFalse(success);
         assertEq(string(ret), "delegation is too small", "delegate dust msg");
     }
@@ -463,7 +457,7 @@ contract StakingEdgeCasesTest is Test {
         uint64 valId = _createValidator(address(this), ACTIVE_STAKE, 0);
 
         (bool success, bytes memory ret) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.changeCommission.selector, valId, uint256(1e18 + 1)));
+            .call(abi.encodeWithSelector(IMonadStaking.changeCommission.selector, valId, uint256(1e18 + 1)));
         assertFalse(success);
         assertEq(string(ret), "commission too high", "commission msg");
     }
@@ -483,7 +477,7 @@ contract StakingEdgeCasesTest is Test {
         STAKING.undelegate(valId, 1000 ether, 0);
         vm.prank(del2);
         (bool success, bytes memory ret) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.undelegate.selector, valId, uint256(500 ether), uint8(0)));
+            .call(abi.encodeWithSelector(IMonadStaking.undelegate.selector, valId, uint256(500 ether), uint8(0)));
         assertFalse(success);
         assertEq(string(ret), "withdrawal id exists", "duplicate wr msg");
     }
@@ -497,7 +491,7 @@ contract StakingEdgeCasesTest is Test {
         monad.setEpoch(1, false);
         vm.deal(address(this), 1 ether);
         (bool success,) = address(STAKING).call{value: 1 ether}(
-            abi.encodeWithSelector(IStakingPrecompile.externalReward.selector, uint64(999))
+            abi.encodeWithSelector(IMonadStaking.externalReward.selector, uint64(999))
         );
         assertFalse(success, "externalReward to non-existent validator should revert");
     }
@@ -516,9 +510,8 @@ contract StakingEdgeCasesTest is Test {
         // MAX_EXTERNAL_REWARD = 1e25
         uint256 tooMuch = 1e25 + 1;
         vm.deal(address(this), tooMuch);
-        (bool success,) = address(STAKING).call{value: tooMuch}(
-            abi.encodeWithSelector(IStakingPrecompile.externalReward.selector, valId)
-        );
+        (bool success,) =
+            address(STAKING).call{value: tooMuch}(abi.encodeWithSelector(IMonadStaking.externalReward.selector, valId));
         assertFalse(success, "external reward above maximum should revert");
     }
 
@@ -559,7 +552,7 @@ contract StakingEdgeCasesTest is Test {
         returns (uint256 stake, uint256 accRewardPerToken, uint256 unclaimedRewards)
     {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getDelegator.selector, valId, delegator));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getDelegator.selector, valId, delegator));
         require(ok, "getDelegator failed");
         (stake, accRewardPerToken, unclaimedRewards,,,,) =
             abi.decode(ret, (uint256, uint256, uint256, uint256, uint256, uint64, uint64));

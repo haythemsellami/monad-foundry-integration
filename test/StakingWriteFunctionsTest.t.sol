@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/IStakingPrecompile.sol";
-import "../src/IMonadVm.sol";
+import {IMonadStaking} from "monad-std/interfaces/IMonadStaking.sol";
+import {MonadVm} from "monad-std/MonadVm.sol";
 
 /// @title StakingWriteFunctionsTest
 /// @notice Tests all 8 state-modifying staking precompile functions:
@@ -14,8 +14,8 @@ import "../src/IMonadVm.sol";
 ///      Validators require >= 10,000,000 MON stake to clear STAKE_TOO_LOW flag
 ///      and enter the execution set.
 contract StakingWriteFunctionsTest is Test {
-    IStakingPrecompile constant STAKING = IStakingPrecompile(address(0x1000));
-    IMonadVm constant monad = IMonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
+    IMonadStaking constant STAKING = IMonadStaking(address(0x1000));
+    MonadVm constant monad = MonadVm(0xc0FFeeCD43A10e1C2b0De63c6CDCFe5B7d0e0CEA);
 
     /// @dev Minimum active validator stake: 10,000,000 MON.
     uint256 constant ACTIVE_STAKE = 10_000_000 ether;
@@ -62,7 +62,7 @@ contract StakingWriteFunctionsTest is Test {
         )
     {
         (bool ok, bytes memory ret) = address(STAKING)
-            .call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+            .call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, valId));
         require(ok, "getValidator failed");
         (authAddress, flags, stake, accRewardPerToken, commission, unclaimedRewards) =
             abi.decode(ret, (address, uint64, uint256, uint256, uint256, uint256));
@@ -74,7 +74,7 @@ contract StakingWriteFunctionsTest is Test {
         returns (uint256 consensusStake, uint256 consensusCommission, uint256 snapshotStake, uint256 snapshotCommission)
     {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getValidator.selector, valId));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getValidator.selector, valId));
         require(ok, "getValidator failed");
         assembly {
             consensusStake := mload(add(ret, 224))
@@ -90,7 +90,7 @@ contract StakingWriteFunctionsTest is Test {
         returns (uint256 stake, uint256 accRewardPerToken, uint256 unclaimedRewards)
     {
         (bool ok, bytes memory ret) =
-            address(STAKING).call(abi.encodeWithSelector(IStakingPrecompile.getDelegator.selector, valId, delegator));
+            address(STAKING).call(abi.encodeWithSelector(IMonadStaking.getDelegator.selector, valId, delegator));
         require(ok, "getDelegator failed");
         (stake, accRewardPerToken, unclaimedRewards,,,,) =
             abi.decode(ret, (uint256, uint256, uint256, uint256, uint256, uint64, uint64));
