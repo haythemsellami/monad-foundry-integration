@@ -83,6 +83,34 @@ done
 echo ""
 
 # ============================================================================
+# MIP-3 MEMORY TESTS
+# ============================================================================
+echo -e "${YELLOW}[MIP-3 MEMORY TESTS]${NC}"
+
+MIP3_OUTPUT=$("$PROJECT_ROOT/script/forge/test_mip3.sh" 2>&1) || true
+
+# Parse pass/fail from the mip3 script output
+MIP3_PASSED=$(echo "$MIP3_OUTPUT" | grep -c 'PASS' || true)
+MIP3_FAILED=$(echo "$MIP3_OUTPUT" | grep -c 'FAIL' || true)
+
+# Display individual results
+while IFS= read -r line; do
+    if [[ $line =~ PASS ]]; then
+        name=$(echo "$line" | sed 's/.*PASS //')
+        echo -e "  ${GREEN}✓${NC} $name"
+    elif [[ $line =~ FAIL ]]; then
+        name=$(echo "$line" | sed 's/.*FAIL //')
+        echo -e "  ${RED}✗${NC} $name"
+        FAILED_TESTS+=("mip3: $name")
+    fi
+done <<< "$(echo "$MIP3_OUTPUT" | grep -E '(PASS|FAIL)')"
+
+PASSED=$((PASSED + MIP3_PASSED))
+FAILED=$((FAILED + MIP3_FAILED))
+
+echo ""
+
+# ============================================================================
 # ANVIL TESTS
 # ============================================================================
 echo -e "${YELLOW}[ANVIL TESTS]${NC}"

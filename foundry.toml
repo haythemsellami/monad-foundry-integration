@@ -14,4 +14,11 @@ optimizer = false
 # Use legacy codegen (not IR) for predictable bytecode
 via_ir = false
 
+# MIP-3 testing profiles
+[profile.monad_eight]
+monad_hardfork = "MonadEight"
+
+[profile.monad_nine]
+monad_hardfork = "MonadNine"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
