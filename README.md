@@ -119,7 +119,7 @@ MIP-3 linear memory cost model tests across two hardfork profiles.
 | Contract | Profile | Tests | What it verifies |
 |----------|---------|-------|------------------|
 | `MonadNineMip3Test` | `monad_nine` | 13 | Linear pricing (`words/2`), 8 MB pooled cap, sibling memory release, MCOPY/CREATE/CREATE2/KECCAK256/RETURN memory expansion |
-| `MonadEightMemoryRegressionTest` | `monad_eight` | 1 | Over-8 MB succeeds (cap not active before MonadNine) |
+| `MonadEightMip3RegressionTest` | `monad_eight` | 1 | Over-8 MB succeeds (cap not active before MonadNine) |
 | `Mip3DifferentialTest` | both | 3 | Same expansion costs dramatically more under quadratic (MonadEight) vs linear (MonadNine) |
 
 ```bash
@@ -127,7 +127,7 @@ MIP-3 linear memory cost model tests across two hardfork profiles.
 FOUNDRY_PROFILE=monad_nine forge test --match-contract MonadNineMip3Test -vv
 
 # Run MonadEight regression
-FOUNDRY_PROFILE=monad_eight forge test --match-contract MonadEightMemoryRegressionTest -vv
+FOUNDRY_PROFILE=monad_eight forge test --match-contract MonadEightMip3RegressionTest -vv
 
 # Run all MIP-3 tests with the wrapper script
 ./script/forge/test_mip3.sh

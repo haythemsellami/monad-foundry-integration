@@ -29,7 +29,8 @@ echo ""
 echo -e "${YELLOW}[FORGE TESTS]${NC}"
 
 # Run forge test and capture output
-FORGE_OUTPUT=$(forge test 2>&1)
+# Exclude Mip contracts — they require specific profiles and are run by their own script, e.g test_mip3.sh
+FORGE_OUTPUT=$(forge test --no-match-contract Mip 2>&1)
 
 # Parse and display results
 echo "$FORGE_OUTPUT" | while IFS= read -r line; do

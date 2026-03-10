@@ -111,18 +111,14 @@ contract MonadNineMip3Test is Test {
         MemoryAllocator allocator = new MemoryAllocator();
         // 8 MB - 4 KB headroom for Solidity overhead inside the child
         uint256 size = MEMORY_LIMIT - 4096;
-        (bool ok,) = address(allocator).call(
-            abi.encodeCall(MemoryAllocator.allocateRaw, (size))
-        );
+        (bool ok,) = address(allocator).call(abi.encodeCall(MemoryAllocator.allocateRaw, (size)));
         assertTrue(ok, "Near-8 MB allocation must succeed");
     }
 
     /// @notice 8 MB + 32 bytes always reverts (exceeds pooled cap).
     function test_8MB_Plus32_Reverts() public {
         MemoryAllocator allocator = new MemoryAllocator();
-        (bool ok,) = address(allocator).call(
-            abi.encodeCall(MemoryAllocator.allocateRaw, (MEMORY_LIMIT + 32))
-        );
+        (bool ok,) = address(allocator).call(abi.encodeCall(MemoryAllocator.allocateRaw, (MEMORY_LIMIT + 32)));
         assertFalse(ok, "8 MB + 32 must revert (MemoryLimitOOG)");
     }
 
@@ -134,9 +130,8 @@ contract MonadNineMip3Test is Test {
     function test_PooledCap_SmallChildSucceeds() public {
         PooledCapTester tester = new PooledCapTester();
         // Parent uses 6 MB, child uses 512 KB — well within the 8 MB cap
-        (bool ok,) = address(tester).call(
-            abi.encodeCall(PooledCapTester.parentThenChild, (6 * 1024 * 1024, 512 * 1024))
-        );
+        (bool ok,) =
+            address(tester).call(abi.encodeCall(PooledCapTester.parentThenChild, (6 * 1024 * 1024, 512 * 1024)));
         assertTrue(ok, "Child 512 KB should succeed (parent used 6 MB)");
     }
 
@@ -159,14 +154,10 @@ contract MonadNineMip3Test is Test {
         // because child1's memory is released before child2 runs.
         uint256 childSize = 4 * 1024 * 1024;
 
-        (bool ok1,) = address(child1).call(
-            abi.encodeCall(MemoryAllocator.allocateRaw, (childSize))
-        );
+        (bool ok1,) = address(child1).call(abi.encodeCall(MemoryAllocator.allocateRaw, (childSize)));
         assertTrue(ok1, "First child 4 MB must succeed");
 
-        (bool ok2,) = address(child2).call(
-            abi.encodeCall(MemoryAllocator.allocateRaw, (childSize))
-        );
+        (bool ok2,) = address(child2).call(abi.encodeCall(MemoryAllocator.allocateRaw, (childSize)));
         assertTrue(ok2, "Second child 4 MB must succeed (first child's memory released)");
     }
 
@@ -250,9 +241,7 @@ contract MonadNineMip3Test is Test {
     /// @notice RETURN with large return data forces memory expansion inside callee.
     function test_Return_MemoryExpansion() public {
         ReturnAllocator ra = new ReturnAllocator();
-        (bool ok, bytes memory data) = address(ra).call(
-            abi.encodeCall(ReturnAllocator.returnLargeData, (4096))
-        );
+        (bool ok, bytes memory data) = address(ra).call(abi.encodeCall(ReturnAllocator.returnLargeData, (4096)));
         assertTrue(ok, "RETURN with 4096-byte payload must succeed");
         // ABI encoding: 32 bytes offset + 32 bytes length + 4096 bytes data
         // abi.decode strips the envelope, so we get the inner bytes.
@@ -265,15 +254,13 @@ contract MonadNineMip3Test is Test {
 // MonadEight: Hardfork-Gating Semantics
 // =============================================================================
 
-contract MonadEightMemoryRegressionTest is Test {
+contract MonadEightMip3RegressionTest is Test {
     /// @notice Over-8 MB allocation succeeds on MonadEight (cap not active).
     function test_Over8MB_Succeeds_NoCap() public {
         MemoryAllocator allocator = new MemoryAllocator();
         // Allocate 9 MB — should succeed because the 8 MB cap is MonadNine+ only
         uint256 size = 9 * 1024 * 1024;
-        (bool ok,) = address(allocator).call{gas: 200_000_000}(
-            abi.encodeCall(MemoryAllocator.allocateRaw, (size))
-        );
+        (bool ok,) = address(allocator).call{gas: 200_000_000}(abi.encodeCall(MemoryAllocator.allocateRaw, (size)));
         assertTrue(ok, "9 MB allocation must succeed on MonadEight (no MIP-3 cap)");
     }
 }
@@ -388,18 +375,13 @@ contract PooledCapTester {
     }
 
     /// @notice Parent allocates, child tries to allocate — returns whether child succeeded.
-    function parentThenChildExpectFailure(uint256 parentSize, uint256 childSize)
-        external
-        returns (bool childOk)
-    {
+    function parentThenChildExpectFailure(uint256 parentSize, uint256 childSize) external returns (bool childOk) {
         // Parent expansion
         assembly { mstore(sub(parentSize, 32), 0) }
 
         // Child call via low-level call so parent survives the revert
         MemoryAllocator child = new MemoryAllocator();
-        (childOk,) = address(child).call(
-            abi.encodeCall(MemoryAllocator.allocateRaw, (childSize))
-        );
+        (childOk,) = address(child).call(abi.encodeCall(MemoryAllocator.allocateRaw, (childSize)));
     }
 }
 

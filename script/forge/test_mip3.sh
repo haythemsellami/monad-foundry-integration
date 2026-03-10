@@ -57,7 +57,7 @@ echo ""
 echo -e "${YELLOW}[MonadEight — Hardfork-Gating Semantics]${NC}"
 
 EIGHT_OUTPUT=$(FOUNDRY_PROFILE=monad_eight forge test \
-    --match-contract MonadEightMemoryRegressionTest \
+    --match-contract MonadEightMip3RegressionTest \
     -vv 2>&1) || true
 
 while IFS= read -r line; do
