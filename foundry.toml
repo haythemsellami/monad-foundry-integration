@@ -3,15 +3,10 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
-# Pin solc version for reproducible gas measurements
-# Gas overhead values in tests (19, 25) are calibrated for this exact config
+# Pin solc version and disable optimizer for reproducible gas measurements
+# across MonadGasTest (exact overhead constants) and MIP-3 tests (linear deltas).
 solc_version = "0.8.28"
-
-# Optimizer OFF - matches how overhead values were measured
-# WARNING: Changing these will invalidate the gas overhead constants in tests
 optimizer = false
-
-# Use legacy codegen (not IR) for predictable bytecode
 via_ir = false
 
 # MIP-3 testing profiles

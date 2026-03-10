@@ -167,7 +167,32 @@ else
 fi
 
 # =========================================================================
-# Test 5: Differential gas estimation
+# Test 5: Pooled cap — parent 7 MB + child 2 MB fails (exceeds 8 MB)
+# =========================================================================
+PARENT_BIG=$((7 * 1024 * 1024))
+CHILD_BIG=$((2 * 1024 * 1024))
+CALLDATA_FAIL=$(cast calldata "parentThenChildExpectFailure(uint256,uint256)" $PARENT_BIG $CHILD_BIG)
+
+RECEIPT=$(cast send $POOLED_NINE $CALLDATA_FAIL \
+    --rpc-url $RPC_NINE --private-key $PRIVKEY \
+    --gas-limit $BLOCK_GAS_LIMIT --json 2>/dev/null) || true
+
+STATUS=$(echo "$RECEIPT" | jq -r '.status')
+if [[ "$STATUS" == "0x1" ]]; then
+    # Transaction succeeds (parent survives), but the return value should be false (child failed)
+    RETURN_DATA=$(cast call $POOLED_NINE $CALLDATA_FAIL --rpc-url $RPC_NINE 2>/dev/null) || true
+    # Return is a bool: 0x0...0 = false (child failed), 0x0...1 = true (child succeeded)
+    if [[ "$RETURN_DATA" == "0x0000000000000000000000000000000000000000000000000000000000000000" ]]; then
+        pass "Pooled cap: parent 7 MB + child 2 MB — child fails (exceeds cap)"
+    else
+        fail "Pooled cap: parent 7 MB + child 2 MB — child should fail"
+    fi
+else
+    fail "Pooled cap: parent transaction should succeed (only child reverts)"
+fi
+
+# =========================================================================
+# Test 6: Differential gas estimation
 # =========================================================================
 echo ""
 echo "[Differential — Gas Estimation]"

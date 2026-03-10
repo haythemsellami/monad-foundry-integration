@@ -105,11 +105,12 @@ contract MonadNineMip3Test is Test {
     // -------------------------------------------------------------------------
 
     /// @notice Near-8 MB allocation succeeds.
-    /// @dev We allocate slightly under 8 MB to leave room for the child
-    ///      contract's own Solidity overhead (ABI decoding, free pointer).
+    /// @dev Allocates 8 MB - 4 KB. The 4 KB headroom accounts for the child
+    ///      contract's Solidity overhead (ABI decoding, free pointer). This is
+    ///      a deliberate approximation, not an exact boundary proof.
     function test_Near8MB_Succeeds() public {
         MemoryAllocator allocator = new MemoryAllocator();
-        // 8 MB - 4 KB headroom for Solidity overhead inside the child
+        // 8 MB - 4 KB headroom for child's Solidity overhead
         uint256 size = MEMORY_LIMIT - 4096;
         (bool ok,) = address(allocator).call(abi.encodeCall(MemoryAllocator.allocateRaw, (size)));
         assertTrue(ok, "Near-8 MB allocation must succeed");
@@ -341,19 +342,19 @@ contract Mip3DifferentialTest is Test {
 // Helper Contracts
 // =============================================================================
 
-/// @notice Allocates memory to a given size using raw assembly.
-/// @dev Uses a fallback to avoid Solidity ABI decoding overhead that
-///      would consume memory before the test allocation.
+/// @notice Allocates memory to a given size using inline assembly.
+/// @dev Both functions use ABI decoding (normal Solidity external functions),
+///      so the child contract consumes some memory for its own overhead
+///      (free pointer, ABI decoder). Cap tests account for this with headroom.
 contract MemoryAllocator {
-    /// @notice ABI-callable allocator (has Solidity overhead).
+    /// @notice Expand memory to `size` bytes.
     function allocate(uint256 size) external pure {
         assembly {
             mstore(sub(size, 32), 0)
         }
     }
 
-    /// @notice Minimal allocator that reads size from calldata directly.
-    /// @dev Avoids Solidity's ABI decoder memory usage for accurate cap tests.
+    /// @notice Expand memory to `size` bytes (same as allocate).
     function allocateRaw(uint256 size) external pure {
         assembly {
             // Touch the last word to force expansion to `size` bytes
