@@ -7,7 +7,8 @@
 #   1. Gas estimation reflects linear pricing on MonadNine
 #   2. 8 MB cap enforced via real transactions on MonadNine
 #   3. Pooled parent+child cap via real transactions on MonadNine
-#   4. Differential: same calldata costs less on MonadNine than MonadEight
+#   4. High-offset CREATE2 succeeds on MonadNine through a real transaction
+#   5. Differential: same calldata costs less on MonadNine than MonadEight
 #
 # This script manages its own anvil instances (ports 9545/9546).
 #
@@ -82,6 +83,12 @@ POOLED_NINE=$(forge create test/Mip3MemoryTest.t.sol:PooledCapTester \
     --rpc-url $RPC_NINE --private-key $PRIVKEY --broadcast --json 2>/dev/null \
     | jq -r '.deployedTo')
 echo "  PooledCapTester (MonadNine): $POOLED_NINE"
+
+echo "Deploying RpcOpcodeCanary on MonadNine..."
+CANARY_NINE=$(forge create test/Mip3MemoryTest.t.sol:RpcOpcodeCanary \
+    --rpc-url $RPC_NINE --private-key $PRIVKEY --broadcast --json 2>/dev/null \
+    | jq -r '.deployedTo')
+echo "  RpcOpcodeCanary (MonadNine): $CANARY_NINE"
 
 echo "Deploying MemoryAllocator on MonadEight..."
 ALLOC_EIGHT=$(forge create test/Mip3MemoryTest.t.sol:MemoryAllocator \
@@ -192,7 +199,29 @@ else
 fi
 
 # =========================================================================
-# Test 6: Differential gas estimation
+# Test 6: CREATE2 high-offset opcode canary succeeds on MonadNine
+# =========================================================================
+echo ""
+echo "[MonadNine — Opcode Canary via RPC]"
+
+CREATE2_RECEIPT=$(cast send $CANARY_NINE "create2HighOffset()" \
+    --rpc-url $RPC_NINE --private-key $PRIVKEY \
+    --gas-limit $BLOCK_GAS_LIMIT --json 2>/dev/null) || true
+
+STATUS=$(echo "$CREATE2_RECEIPT" | jq -r '.status')
+if [[ "$STATUS" == "0x1" ]]; then
+    CREATE2_OK=$(cast call $CANARY_NINE "lastCreate2Ok()(bool)" --rpc-url $RPC_NINE 2>/dev/null) || true
+    if [[ "$CREATE2_OK" == "true" ]]; then
+        pass "CREATE2 high-offset opcode canary succeeds on MonadNine"
+    else
+        fail "CREATE2 high-offset opcode canary should record success"
+    fi
+else
+    fail "CREATE2 high-offset opcode canary transaction should succeed"
+fi
+
+# =========================================================================
+# Test 7: Differential gas estimation
 # =========================================================================
 echo ""
 echo "[Differential — Gas Estimation]"

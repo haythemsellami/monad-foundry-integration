@@ -386,6 +386,25 @@ contract PooledCapTester {
     }
 }
 
+/// @notice Executes non-allocator memory-expanding opcode canaries over RPC.
+contract RpcOpcodeCanary {
+    address public lastCreate2;
+    bool public lastCreate2Ok;
+
+    /// @notice Run CREATE2 with initcode placed at a high memory offset.
+    /// @dev Expands memory to ~512 KB before executing CREATE2.
+    function create2HighOffset() external returns (address created) {
+        assembly {
+            let offset := sub(0x80000, 32)
+            mstore(offset, shl(216, 0x60006000f3))
+            created := create2(0, offset, 5, 0x1234)
+        }
+
+        lastCreate2 = created;
+        lastCreate2Ok = created != address(0);
+    }
+}
+
 /// @notice Returns a buffer of `size` zero bytes.
 contract ReturnAllocator {
     function returnLargeData(uint256 size) external pure returns (bytes memory) {

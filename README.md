@@ -180,3 +180,18 @@ Tests gas costs for opcodes and precompiles.
 anvil --monad
 ./script/test/anvil/test_opcodes_precompiles_gas_pricing.sh
 ```
+
+#### `test_mip3_memory.sh`
+End-to-end MIP-3 verification through `anvil --monad --hardfork ...`.
+
+Checks:
+- Near-8 MB allocation succeeds on `MonadNine`
+- Over-8 MB allocation reverts on `MonadNine`
+- Over-8 MB allocation succeeds on `MonadEight`
+- Pooled cap positive and negative parent/child cases on `MonadNine`
+- High-offset `CREATE2` succeeds on `MonadNine`
+- Same 1 MB allocation estimates higher gas on `MonadEight` than `MonadNine`
+
+```bash
+./script/test/anvil/test_mip3_memory.sh
+```
