@@ -47,7 +47,15 @@ forge test -vv
 forge test --match-test test_ColdBalanceGasCost
 ```
 
-### 2. Chisel Tests (`script/test/chisel/`)
+### 2. MIP-3 Memory Tests (`script/forge/`)
+
+Profile-based forge tests that verify MIP-3 linear memory pricing across hardfork boundaries. Runs the same test contracts under `monad_eight` and `monad_nine` profiles.
+
+```bash
+./script/forge/test_mip3.sh
+```
+
+### 3. Chisel Tests (`script/test/chisel/`)
 
 Shell scripts that test chisel REPL with Monad gas costs. No anvil needed.
 
@@ -55,7 +63,7 @@ Shell scripts that test chisel REPL with Monad gas costs. No anvil needed.
 ./script/test/chisel/test_chisel_monad.sh
 ```
 
-### 3. Anvil Scripts (`script/test/anvil/`)
+### 4. Anvil Scripts (`script/test/anvil/`)
 
 Shell scripts that test behavior requiring real transactions (balance changes, gas charging). These use `anvil --monad` and `cast`.
 
@@ -105,6 +113,26 @@ Tests contract bytecode size limits.
 forge test --match-contract BytecodeSizeLimitTest -vv
 ```
 
+#### `Mip3MemoryTest.t.sol`
+MIP-3 linear memory cost model tests across two hardfork profiles.
+
+| Contract | Profile | Tests | What it verifies |
+|----------|---------|-------|------------------|
+| `MonadNineMip3Test` | `monad_nine` | 13 | Linear pricing (`words/2`), 8 MB pooled cap, sibling memory release, MCOPY/CREATE/CREATE2/KECCAK256/RETURN memory expansion |
+| `MonadEightMip3RegressionTest` | `monad_eight` | 1 | Over-8 MB succeeds (cap not active before MonadNine) |
+| `Mip3DifferentialTest` | both | 3 | Same expansion costs dramatically more under quadratic (MonadEight) vs linear (MonadNine) |
+
+```bash
+# Run MonadNine tests
+FOUNDRY_PROFILE=monad_nine forge test --match-contract MonadNineMip3Test -vv
+
+# Run MonadEight regression
+FOUNDRY_PROFILE=monad_eight forge test --match-contract MonadEightMip3RegressionTest -vv
+
+# Run all MIP-3 tests with the wrapper script
+./script/forge/test_mip3.sh
+```
+
 ### Chisel Tests (`script/test/chisel/`)
 
 #### `test_chisel_monad.sh`
@@ -151,4 +179,19 @@ Tests gas costs for opcodes and precompiles.
 ```bash
 anvil --monad
 ./script/test/anvil/test_opcodes_precompiles_gas_pricing.sh
+```
+
+#### `test_mip3_memory.sh`
+End-to-end MIP-3 verification through `anvil --monad --hardfork ...`.
+
+Checks:
+- Near-8 MB allocation succeeds on `MonadNine`
+- Over-8 MB allocation reverts on `MonadNine`
+- Over-8 MB allocation succeeds on `MonadEight`
+- Pooled cap positive and negative parent/child cases on `MonadNine`
+- High-offset `CREATE2` succeeds on `MonadNine`
+- Same 1 MB allocation estimates higher gas on `MonadEight` than `MonadNine`
+
+```bash
+./script/test/anvil/test_mip3_memory.sh
 ```

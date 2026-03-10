@@ -29,7 +29,8 @@ echo ""
 echo -e "${YELLOW}[FORGE TESTS]${NC}"
 
 # Run forge test and capture output
-FORGE_OUTPUT=$(forge test 2>&1)
+# Exclude Mip contracts — they require specific profiles and are run by their own script, e.g test_mip3.sh
+FORGE_OUTPUT=$(forge test --no-match-contract Mip 2>&1)
 
 # Parse and display results
 echo "$FORGE_OUTPUT" | while IFS= read -r line; do
@@ -79,6 +80,34 @@ for script in "$PROJECT_ROOT"/script/test/chisel/*.sh; do
         tail -20 /tmp/chisel_test_output.txt
     fi
 done
+
+echo ""
+
+# ============================================================================
+# MIP-3 MEMORY TESTS
+# ============================================================================
+echo -e "${YELLOW}[MIP-3 MEMORY TESTS]${NC}"
+
+MIP3_OUTPUT=$("$PROJECT_ROOT/script/forge/test_mip3.sh" 2>&1) || true
+
+# Parse pass/fail from the mip3 script output
+MIP3_PASSED=$(echo "$MIP3_OUTPUT" | grep -c 'PASS' || true)
+MIP3_FAILED=$(echo "$MIP3_OUTPUT" | grep -c 'FAIL' || true)
+
+# Display individual results
+while IFS= read -r line; do
+    if [[ $line =~ PASS ]]; then
+        name=$(echo "$line" | sed 's/.*PASS //')
+        echo -e "  ${GREEN}✓${NC} $name"
+    elif [[ $line =~ FAIL ]]; then
+        name=$(echo "$line" | sed 's/.*FAIL //')
+        echo -e "  ${RED}✗${NC} $name"
+        FAILED_TESTS+=("mip3: $name")
+    fi
+done <<< "$(echo "$MIP3_OUTPUT" | grep -E '(PASS|FAIL)')"
+
+PASSED=$((PASSED + MIP3_PASSED))
+FAILED=$((FAILED + MIP3_FAILED))
 
 echo ""
 
