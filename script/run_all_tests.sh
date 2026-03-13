@@ -112,6 +112,32 @@ FAILED=$((FAILED + MIP3_FAILED))
 echo ""
 
 # ============================================================================
+# MIP-4 RESERVE BALANCE TESTS
+# ============================================================================
+echo -e "${YELLOW}[MIP-4 RESERVE BALANCE TESTS]${NC}"
+
+MIP4_OUTPUT=$("$PROJECT_ROOT/script/forge/test_mip4.sh" 2>&1) || true
+
+MIP4_PASSED=$(echo "$MIP4_OUTPUT" | grep -c 'PASS' || true)
+MIP4_FAILED=$(echo "$MIP4_OUTPUT" | grep -c 'FAIL' || true)
+
+while IFS= read -r line; do
+    if [[ $line =~ PASS ]]; then
+        name=$(echo "$line" | sed 's/.*PASS //')
+        echo -e "  ${GREEN}✓${NC} $name"
+    elif [[ $line =~ FAIL ]]; then
+        name=$(echo "$line" | sed 's/.*FAIL //')
+        echo -e "  ${RED}✗${NC} $name"
+        FAILED_TESTS+=("mip4: $name")
+    fi
+done <<< "$(echo "$MIP4_OUTPUT" | grep -E '(PASS|FAIL)')"
+
+PASSED=$((PASSED + MIP4_PASSED))
+FAILED=$((FAILED + MIP4_FAILED))
+
+echo ""
+
+# ============================================================================
 # ANVIL TESTS
 # ============================================================================
 echo -e "${YELLOW}[ANVIL TESTS]${NC}"

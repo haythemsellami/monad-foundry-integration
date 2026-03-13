@@ -55,7 +55,16 @@ Profile-based forge tests that verify MIP-3 linear memory pricing across hardfor
 ./script/forge/test_mip3.sh
 ```
 
-### 3. Chisel Tests (`script/test/chisel/`)
+### 3. MIP-4 Reserve Balance Tests (`script/forge/`)
+
+Profile-based forge tests plus an Anvil RPC script for the `0x1001` reserve-balance precompile introduced in MonadNine.
+
+```bash
+./script/forge/test_mip4.sh
+./script/test/anvil/test_mip4_reserve_balance.sh
+```
+
+### 4. Chisel Tests (`script/test/chisel/`)
 
 Shell scripts that test chisel REPL with Monad gas costs. No anvil needed.
 
@@ -63,7 +72,7 @@ Shell scripts that test chisel REPL with Monad gas costs. No anvil needed.
 ./script/test/chisel/test_chisel_monad.sh
 ```
 
-### 4. Anvil Scripts (`script/test/anvil/`)
+### 5. Anvil Scripts (`script/test/anvil/`)
 
 Shell scripts that test behavior requiring real transactions (balance changes, gas charging). These use `anvil --monad` and `cast`.
 
@@ -194,4 +203,32 @@ Checks:
 
 ```bash
 ./script/test/anvil/test_mip3_memory.sh
+```
+
+#### `test_mip4_reserve_balance.sh`
+End-to-end MIP-4 verification through `anvil --monad --hardfork ...`.
+
+Checks:
+- `0x1001` returns `false` on `MonadNine` in a clean transaction context
+- `0x1001` is absent on `MonadEight`
+- delegated sender sees `false -> true` after spending below reserve
+- delegated sender sees `false -> true -> false` when funds are restored
+- child-frame reserve violation is cleared after revert
+
+```bash
+./script/test/anvil/test_mip4_reserve_balance.sh
+```
+
+#### `Mip4ReserveBalanceTest.t.sol`
+MIP-4 reserve-balance tests across two hardfork profiles.
+
+| Contract | Profile | Tests | What it verifies |
+|----------|---------|-------|------------------|
+| `MonadNineMip4ReserveBalanceTest` | `monad_nine` | 9 | Plain `CALL`, call restrictions, fallback/value/input errors, ABI bool return shape |
+| `MonadEightMip4RegressionTest` | `monad_eight` | 1 | `0x1001` is absent before `MonadNine` |
+
+```bash
+FOUNDRY_PROFILE=monad_nine forge test --match-contract MonadNineMip4ReserveBalanceTest -vv
+FOUNDRY_PROFILE=monad_eight forge test --match-contract MonadEightMip4RegressionTest -vv
+./script/forge/test_mip4.sh
 ```
