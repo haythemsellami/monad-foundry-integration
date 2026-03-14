@@ -17,6 +17,43 @@ FAILED_TESTS=()
 cd "$(dirname "$0")/.."
 PROJECT_ROOT=$(pwd)
 
+# Keep script parsing stable when using Monad nightly builds.
+export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-1}"
+
+is_rate_limited_output() {
+    local output="$1"
+    [[ "$output" == *"429"* ]] || [[ "$output" == *"Too Many Requests"* ]]
+}
+
+run_forge_tests_with_retry() {
+    local max_retries=3
+    local attempt=1
+    local output=""
+    local status=0
+
+    while [ $attempt -le $max_retries ]; do
+        output=$(forge test --no-match-contract Mip 2>&1)
+        status=$?
+
+        if [ $status -eq 0 ]; then
+            echo "$output"
+            return 0
+        fi
+
+        if ! is_rate_limited_output "$output"; then
+            echo "$output"
+            return $status
+        fi
+
+        echo "  forge test hit RPC rate limits; retrying ($attempt/$max_retries)..." >&2
+        sleep $((attempt * 10))
+        attempt=$((attempt + 1))
+    done
+
+    echo "$output"
+    return $status
+}
+
 echo ""
 echo -e "${CYAN}══════════════════════════════════════════════════════════════${NC}"
 echo -e "${CYAN}  MONAD FOUNDRY INTEGRATION TESTS${NC}"
@@ -30,7 +67,7 @@ echo -e "${YELLOW}[FORGE TESTS]${NC}"
 
 # Run forge test and capture output
 # Exclude Mip contracts — they require specific profiles and are run by their own script, e.g test_mip3.sh
-FORGE_OUTPUT=$(forge test --no-match-contract Mip 2>&1)
+FORGE_OUTPUT=$(run_forge_tests_with_retry 2>&1)
 
 # Parse and display results
 echo "$FORGE_OUTPUT" | while IFS= read -r line; do

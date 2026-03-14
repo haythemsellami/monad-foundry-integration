@@ -17,6 +17,9 @@ MONAD_RPC_URL="${MONAD_RPC_URL:-https://rpc.monad.xyz}"
 FORK_ANVIL_PORT="${FORK_ANVIL_PORT:-8546}"
 RPC_URL="http://localhost:$FORK_ANVIL_PORT"
 
+# Keep command output parseable when using nightly Foundry builds.
+export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-1}"
+
 PASS_COUNT=0
 FAIL_COUNT=0
 ANVIL_PID=""
@@ -27,16 +30,36 @@ fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); }
 
 # Retry wrapper for cast call (handles transient RPC timeouts)
 cast_call_retry() {
-    local max_retries=3
+    local max_retries=5
     local attempt=1
-    local result
+    local result=""
+    local stderr=""
+    local stderr_file
+    local status
+
     while [ $attempt -le $max_retries ]; do
-        result=$(cast call "$@" 2>&1) && { echo "$result"; return 0; }
-        echo "  (retry $attempt/$max_retries: cast call timed out)" >&2
-        sleep 2
+        stderr_file=$(mktemp)
+        result=$(cast call "$@" 2>"$stderr_file")
+        status=$?
+        stderr=$(cat "$stderr_file")
+        rm -f "$stderr_file"
+
+        if [ $status -eq 0 ]; then
+            echo "$result"
+            return 0
+        fi
+
+        echo "  (retry $attempt/$max_retries: cast call failed)" >&2
+        if [[ "$stderr" == *"429"* ]] || [[ "$stderr" == *"Too Many Requests"* ]]; then
+            echo "    upstream RPC rate-limited the request" >&2
+            sleep $((attempt * 3))
+        else
+            sleep 2
+        fi
         attempt=$((attempt + 1))
     done
-    echo "$result"
+
+    echo "${stderr:-$result}"
     return 1
 }
 
