@@ -20,28 +20,35 @@ PROJECT_ROOT=$(pwd)
 # Keep script parsing stable when using Monad nightly builds.
 export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-1}"
 
-is_rate_limited_output() {
-    local output="$1"
-    [[ "$output" == *"429"* ]] || [[ "$output" == *"Too Many Requests"* ]]
+is_rate_limited_file() {
+    local logfile="$1"
+    grep -Eq '429|Too Many Requests' "$logfile"
+}
+
+run_and_capture() {
+    local logfile="$1"
+    shift
+
+    "$@" 2>&1 | tee "$logfile"
+    return ${PIPESTATUS[0]}
 }
 
 run_forge_tests_with_retry() {
+    local logfile="$1"
     local max_retries=3
     local attempt=1
-    local output=""
     local status=0
 
     while [ $attempt -le $max_retries ]; do
-        output=$(forge test --no-match-contract Mip 2>&1)
-        status=$?
+        : >"$logfile"
+        forge test --no-match-contract Mip 2>&1 | tee "$logfile"
+        status=${PIPESTATUS[0]}
 
         if [ $status -eq 0 ]; then
-            echo "$output"
             return 0
         fi
 
-        if ! is_rate_limited_output "$output"; then
-            echo "$output"
+        if ! is_rate_limited_file "$logfile"; then
             return $status
         fi
 
@@ -50,7 +57,6 @@ run_forge_tests_with_retry() {
         attempt=$((attempt + 1))
     done
 
-    echo "$output"
     return $status
 }
 
@@ -67,18 +73,10 @@ echo -e "${YELLOW}[FORGE TESTS]${NC}"
 
 # Run forge test and capture output
 # Exclude Mip contracts — they require specific profiles and are run by their own script, e.g test_mip3.sh
-FORGE_OUTPUT=$(run_forge_tests_with_retry 2>&1)
-
-# Parse and display results
-echo "$FORGE_OUTPUT" | while IFS= read -r line; do
-    if [[ $line =~ ^\[PASS\] ]]; then
-        test_name=$(echo "$line" | sed 's/\[PASS\] //' | cut -d'(' -f1 | xargs)
-        echo -e "  ${GREEN}✓${NC} $test_name"
-    elif [[ $line =~ ^\[FAIL ]]; then
-        test_name=$(echo "$line" | sed 's/\[FAIL[^]]*\] //' | cut -d'(' -f1 | xargs)
-        echo -e "  ${RED}✗${NC} $test_name"
-    fi
-done
+FORGE_LOG=$(mktemp)
+run_forge_tests_with_retry "$FORGE_LOG"
+FORGE_OUTPUT=$(cat "$FORGE_LOG")
+rm -f "$FORGE_LOG"
 
 # Count pass/fail
 FORGE_PASSED=$(echo "$FORGE_OUTPUT" | grep -c '^\[PASS\]' || true)
@@ -86,6 +84,8 @@ FORGE_FAILED=$(echo "$FORGE_OUTPUT" | grep -c '^\[FAIL' || true)
 
 PASSED=$((PASSED + FORGE_PASSED))
 FAILED=$((FAILED + FORGE_FAILED))
+
+echo -e "  Forge summary: ${GREEN}${FORGE_PASSED} passed${NC}, ${RED}${FORGE_FAILED} failed${NC}"
 
 # Track failed tests
 if [[ $FORGE_FAILED -gt 0 ]]; then
@@ -106,16 +106,19 @@ echo -e "${YELLOW}[CHISEL TESTS]${NC}"
 for script in "$PROJECT_ROOT"/script/test/chisel/*.sh; do
     [[ -f "$script" ]] || continue
     script_name=$(basename "$script")
+    output_file=$(mktemp)
 
-    if "$script" &>/tmp/chisel_test_output.txt; then
+    echo "  Running $script_name..."
+
+    if run_and_capture "$output_file" "$script"; then
         echo -e "  ${GREEN}✓${NC} $script_name"
         PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("chisel: $script_name")
-        tail -20 /tmp/chisel_test_output.txt
     fi
+    rm -f "$output_file"
 done
 
 echo ""
@@ -125,26 +128,27 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[MIP-3 MEMORY TESTS]${NC}"
 
-MIP3_OUTPUT=$("$PROJECT_ROOT/script/forge/test_mip3.sh" 2>&1) || true
+MIP3_LOG=$(mktemp)
+run_and_capture "$MIP3_LOG" "$PROJECT_ROOT/script/forge/test_mip3.sh" || true
+MIP3_OUTPUT=$(cat "$MIP3_LOG")
+rm -f "$MIP3_LOG"
 
 # Parse pass/fail from the mip3 script output
 MIP3_PASSED=$(echo "$MIP3_OUTPUT" | grep -c 'PASS' || true)
 MIP3_FAILED=$(echo "$MIP3_OUTPUT" | grep -c 'FAIL' || true)
 
-# Display individual results
-while IFS= read -r line; do
-    if [[ $line =~ PASS ]]; then
-        name=$(echo "$line" | sed 's/.*PASS //')
-        echo -e "  ${GREEN}✓${NC} $name"
-    elif [[ $line =~ FAIL ]]; then
-        name=$(echo "$line" | sed 's/.*FAIL //')
-        echo -e "  ${RED}✗${NC} $name"
-        FAILED_TESTS+=("mip3: $name")
-    fi
-done <<< "$(echo "$MIP3_OUTPUT" | grep -E '(PASS|FAIL)')"
-
 PASSED=$((PASSED + MIP3_PASSED))
 FAILED=$((FAILED + MIP3_FAILED))
+
+echo -e "  MIP-3 summary: ${GREEN}${MIP3_PASSED} passed${NC}, ${RED}${MIP3_FAILED} failed${NC}"
+
+if [[ $MIP3_FAILED -gt 0 ]]; then
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        name=$(echo "$line" | sed 's/.*FAIL //')
+        FAILED_TESTS+=("mip3: $name")
+    done <<< "$(echo "$MIP3_OUTPUT" | grep 'FAIL' || true)"
+fi
 
 echo ""
 
@@ -153,24 +157,26 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[MIP-4 RESERVE BALANCE TESTS]${NC}"
 
-MIP4_OUTPUT=$("$PROJECT_ROOT/script/forge/test_mip4.sh" 2>&1) || true
+MIP4_LOG=$(mktemp)
+run_and_capture "$MIP4_LOG" "$PROJECT_ROOT/script/forge/test_mip4.sh" || true
+MIP4_OUTPUT=$(cat "$MIP4_LOG")
+rm -f "$MIP4_LOG"
 
 MIP4_PASSED=$(echo "$MIP4_OUTPUT" | grep -c 'PASS' || true)
 MIP4_FAILED=$(echo "$MIP4_OUTPUT" | grep -c 'FAIL' || true)
 
-while IFS= read -r line; do
-    if [[ $line =~ PASS ]]; then
-        name=$(echo "$line" | sed 's/.*PASS //')
-        echo -e "  ${GREEN}✓${NC} $name"
-    elif [[ $line =~ FAIL ]]; then
-        name=$(echo "$line" | sed 's/.*FAIL //')
-        echo -e "  ${RED}✗${NC} $name"
-        FAILED_TESTS+=("mip4: $name")
-    fi
-done <<< "$(echo "$MIP4_OUTPUT" | grep -E '(PASS|FAIL)')"
-
 PASSED=$((PASSED + MIP4_PASSED))
 FAILED=$((FAILED + MIP4_FAILED))
+
+echo -e "  MIP-4 summary: ${GREEN}${MIP4_PASSED} passed${NC}, ${RED}${MIP4_FAILED} failed${NC}"
+
+if [[ $MIP4_FAILED -gt 0 ]]; then
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        name=$(echo "$line" | sed 's/.*FAIL //')
+        FAILED_TESTS+=("mip4: $name")
+    done <<< "$(echo "$MIP4_OUTPUT" | grep 'FAIL' || true)"
+fi
 
 echo ""
 
@@ -196,16 +202,19 @@ fi
 for script in "$PROJECT_ROOT"/script/test/anvil/*.sh; do
     [[ -f "$script" ]] || continue
     script_name=$(basename "$script")
+    output_file=$(mktemp)
 
-    if "$script" &>/tmp/anvil_test_output.txt; then
+    echo "  Running $script_name..."
+
+    if run_and_capture "$output_file" "$script"; then
         echo -e "  ${GREEN}✓${NC} $script_name"
         PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil: $script_name")
-        tail -20 /tmp/anvil_test_output.txt
     fi
+    rm -f "$output_file"
 done
 
 # Cleanup anvil if we started it
@@ -225,16 +234,19 @@ MONAD_RPC_URL="${MONAD_RPC_URL:-https://rpc.monad.xyz}"
 for script in "$PROJECT_ROOT"/script/test/anvil/fork/*.sh; do
     [[ -f "$script" ]] || continue
     script_name=$(basename "$script")
+    output_file=$(mktemp)
 
-    if MONAD_RPC_URL="$MONAD_RPC_URL" "$script" &>/tmp/anvil_fork_test_output.txt; then
+    echo "  Running $script_name..."
+
+    if run_and_capture "$output_file" env MONAD_RPC_URL="$MONAD_RPC_URL" "$script"; then
         echo -e "  ${GREEN}✓${NC} $script_name"
         PASSED=$((PASSED + 1))
     else
         echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil-fork: $script_name")
-        cat /tmp/anvil_fork_test_output.txt
     fi
+    rm -f "$output_file"
 done
 
 echo ""
