@@ -16,4 +16,7 @@ monad_hardfork = "MonadEight"
 [profile.monad_nine]
 monad_hardfork = "MonadNine"
 
+[profile.monad_next]
+monad_hardfork = "MonadNext"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
