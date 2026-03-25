@@ -27,22 +27,92 @@ is_rate_limited_file() {
 
 run_and_capture() {
     local logfile="$1"
-    shift
+    local label="$2"
+    shift 2
 
-    "$@" 2>&1 | tee "$logfile"
-    return ${PIPESTATUS[0]}
+    local cmd_pid
+    local start_ts
+    local heartbeat_interval=30
+    local poll_interval=5
+    local idle_for=0
+    local last_size=0
+    local current_size=0
+
+    start_ts=$(date +%s)
+    : >"$logfile"
+    "$@" > >(tee "$logfile") 2>&1 &
+    cmd_pid=$!
+
+    while kill -0 "$cmd_pid" 2>/dev/null; do
+        sleep "$poll_interval"
+        current_size=$(wc -c < "$logfile" | tr -d ' ')
+
+        if [ "$current_size" -gt "$last_size" ]; then
+            last_size=$current_size
+            idle_for=0
+            continue
+        fi
+
+        idle_for=$((idle_for + poll_interval))
+        if [ $idle_for -ge $heartbeat_interval ] && kill -0 "$cmd_pid" 2>/dev/null; then
+            echo -e "    ${CYAN}…${NC} Still running $label ($(($(date +%s) - start_ts))s)"
+            idle_for=0
+        fi
+    done
+
+    wait "$cmd_pid"
+    return $?
 }
 
-run_forge_tests_with_retry() {
+run_step() {
+    local label="$1"
+    local logfile="$2"
+    shift 2
+
+    local start_ts
+    local duration
+    local status
+
+    start_ts=$(date +%s)
+    echo -e "  ${CYAN}▶${NC} Running $label..."
+
+    if run_and_capture "$logfile" "$label" "$@"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    duration=$(( $(date +%s) - start_ts ))
+    if [ $status -eq 0 ]; then
+        echo -e "  ${GREEN}✓${NC} Finished $label (${duration}s)"
+    else
+        echo -e "  ${RED}✗${NC} Finished $label (${duration}s)"
+    fi
+
+    return $status
+}
+
+discover_forge_suites() {
+    rg -l 'function test|contract .* is Test' "$PROJECT_ROOT/test" "$PROJECT_ROOT/src" -g '*.sol' \
+        | sort \
+        | while IFS= read -r suite; do
+            [[ "$(basename "$suite")" == Mip* ]] && continue
+            echo "$suite"
+        done
+}
+
+run_forge_suite_with_retry() {
     local logfile="$1"
+    local suite_path="$2"
+    local suite_label="${suite_path#$PROJECT_ROOT/}"
     local max_retries=3
     local attempt=1
     local status=0
 
     while [ $attempt -le $max_retries ]; do
         : >"$logfile"
-        forge test --no-match-contract Mip 2>&1 | tee "$logfile"
-        status=${PIPESTATUS[0]}
+        run_and_capture "$logfile" "forge suite $suite_label" forge test --match-path "$suite_label"
+        status=$?
 
         if [ $status -eq 0 ]; then
             return 0
@@ -52,7 +122,7 @@ run_forge_tests_with_retry() {
             return $status
         fi
 
-        echo "  forge test hit RPC rate limits; retrying ($attempt/$max_retries)..." >&2
+        echo "    forge suite $suite_label hit RPC rate limits; retrying ($attempt/$max_retries)..." >&2
         sleep $((attempt * 10))
         attempt=$((attempt + 1))
     done
@@ -71,29 +141,58 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[FORGE TESTS]${NC}"
 
-# Run forge test and capture output
-# Exclude Mip contracts — they require specific profiles and are run by their own script, e.g test_mip3.sh
-FORGE_LOG=$(mktemp)
-run_forge_tests_with_retry "$FORGE_LOG"
-FORGE_OUTPUT=$(cat "$FORGE_LOG")
-rm -f "$FORGE_LOG"
+FORGE_SUITES=()
+while IFS= read -r suite; do
+    FORGE_SUITES+=("$suite")
+done < <(discover_forge_suites)
+echo "  Discovered ${#FORGE_SUITES[@]} forge suite files"
 
-# Count pass/fail
-FORGE_PASSED=$(echo "$FORGE_OUTPUT" | grep -c '^\[PASS\]' || true)
-FORGE_FAILED=$(echo "$FORGE_OUTPUT" | grep -c '^\[FAIL' || true)
+FORGE_PASSED=0
+FORGE_FAILED=0
 
-PASSED=$((PASSED + FORGE_PASSED))
-FAILED=$((FAILED + FORGE_FAILED))
+for suite in "${FORGE_SUITES[@]}"; do
+    suite_label="${suite#$PROJECT_ROOT/}"
+    suite_log=$(mktemp)
+    suite_start_ts=$(date +%s)
+
+    echo -e "  ${CYAN}▶${NC} Running forge suite $suite_label..."
+    run_forge_suite_with_retry "$suite_log" "$suite"
+    suite_status=$?
+    suite_duration=$(( $(date +%s) - suite_start_ts ))
+
+    if [ $suite_status -eq 0 ]; then
+        echo -e "  ${GREEN}✓${NC} Finished forge suite $suite_label (${suite_duration}s)"
+    else
+        echo -e "  ${RED}✗${NC} Finished forge suite $suite_label (${suite_duration}s)"
+    fi
+
+    suite_output=$(cat "$suite_log")
+    rm -f "$suite_log"
+
+    suite_passed=$(echo "$suite_output" | grep -c '^\[PASS\]' || true)
+    suite_fail_lines=$(echo "$suite_output" | grep '^\[FAIL' | awk '!seen[$0]++' || true)
+    suite_failed=$(echo "$suite_fail_lines" | sed '/^$/d' | wc -l | tr -d ' ')
+
+    FORGE_PASSED=$((FORGE_PASSED + suite_passed))
+    FORGE_FAILED=$((FORGE_FAILED + suite_failed))
+    PASSED=$((PASSED + suite_passed))
+    FAILED=$((FAILED + suite_failed))
+
+    if [[ $suite_failed -gt 0 ]]; then
+        while IFS= read -r line; do
+            test_name=$(echo "$line" | sed 's/\[FAIL[^]]*\] //' | cut -d'(' -f1 | xargs)
+            FAILED_TESTS+=("forge: $suite_label :: $test_name")
+        done <<< "$suite_fail_lines"
+    fi
+
+    if [[ $suite_status -ne 0 && $suite_failed -eq 0 ]]; then
+        FAILED=$((FAILED + 1))
+        FORGE_FAILED=$((FORGE_FAILED + 1))
+        FAILED_TESTS+=("forge: $suite_label (command failed)")
+    fi
+done
 
 echo -e "  Forge summary: ${GREEN}${FORGE_PASSED} passed${NC}, ${RED}${FORGE_FAILED} failed${NC}"
-
-# Track failed tests
-if [[ $FORGE_FAILED -gt 0 ]]; then
-    while IFS= read -r line; do
-        test_name=$(echo "$line" | sed 's/\[FAIL[^]]*\] //' | cut -d'(' -f1 | xargs)
-        FAILED_TESTS+=("forge: $test_name")
-    done <<< "$(echo "$FORGE_OUTPUT" | grep '^\[FAIL')"
-fi
 
 echo ""
 
@@ -108,13 +207,9 @@ for script in "$PROJECT_ROOT"/script/test/chisel/*.sh; do
     script_name=$(basename "$script")
     output_file=$(mktemp)
 
-    echo "  Running $script_name..."
-
-    if run_and_capture "$output_file" "$script"; then
-        echo -e "  ${GREEN}✓${NC} $script_name"
+    if run_step "$script_name" "$output_file" "$script"; then
         PASSED=$((PASSED + 1))
     else
-        echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("chisel: $script_name")
     fi
@@ -129,7 +224,7 @@ echo ""
 echo -e "${YELLOW}[MIP-3 MEMORY TESTS]${NC}"
 
 MIP3_LOG=$(mktemp)
-run_and_capture "$MIP3_LOG" "$PROJECT_ROOT/script/forge/test_mip3.sh" || true
+run_step "test_mip3.sh" "$MIP3_LOG" "$PROJECT_ROOT/script/forge/test_mip3.sh" || true
 MIP3_OUTPUT=$(cat "$MIP3_LOG")
 rm -f "$MIP3_LOG"
 
@@ -158,7 +253,7 @@ echo ""
 echo -e "${YELLOW}[MIP-4 RESERVE BALANCE TESTS]${NC}"
 
 MIP4_LOG=$(mktemp)
-run_and_capture "$MIP4_LOG" "$PROJECT_ROOT/script/forge/test_mip4.sh" || true
+run_step "test_mip4.sh" "$MIP4_LOG" "$PROJECT_ROOT/script/forge/test_mip4.sh" || true
 MIP4_OUTPUT=$(cat "$MIP4_LOG")
 rm -f "$MIP4_LOG"
 
@@ -204,13 +299,9 @@ for script in "$PROJECT_ROOT"/script/test/anvil/*.sh; do
     script_name=$(basename "$script")
     output_file=$(mktemp)
 
-    echo "  Running $script_name..."
-
-    if run_and_capture "$output_file" "$script"; then
-        echo -e "  ${GREEN}✓${NC} $script_name"
+    if run_step "$script_name" "$output_file" "$script"; then
         PASSED=$((PASSED + 1))
     else
-        echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil: $script_name")
     fi
@@ -236,13 +327,9 @@ for script in "$PROJECT_ROOT"/script/test/anvil/fork/*.sh; do
     script_name=$(basename "$script")
     output_file=$(mktemp)
 
-    echo "  Running $script_name..."
-
-    if run_and_capture "$output_file" env MONAD_RPC_URL="$MONAD_RPC_URL" "$script"; then
-        echo -e "  ${GREEN}✓${NC} $script_name"
+    if run_step "$script_name" "$output_file" env MONAD_RPC_URL="$MONAD_RPC_URL" "$script"; then
         PASSED=$((PASSED + 1))
     else
-        echo -e "  ${RED}✗${NC} $script_name"
         FAILED=$((FAILED + 1))
         FAILED_TESTS+=("anvil-fork: $script_name")
     fi

@@ -16,6 +16,11 @@ contract StakingCallRestrictionsTest is Test {
 
     bytes getEpochData = abi.encodeWithSelector(IMonadStaking.getEpoch.selector);
 
+    function assertDelegatecallRejected(bytes memory data) internal {
+        (bool success,) = STAKING_ADDRESS.delegatecall(data);
+        assertFalse(success, "DELEGATECALL to staking should be rejected");
+    }
+
     // ============ Regular CALL (accepted) ============
 
     function test_regularCallAccepted() public {
@@ -27,9 +32,8 @@ contract StakingCallRestrictionsTest is Test {
 
     // ============ DELEGATECALL (rejected) ============
 
-    function test_delegatecallRejected() public {
-        (bool success,) = STAKING_ADDRESS.delegatecall(getEpochData);
-        assertFalse(success, "DELEGATECALL to staking should be rejected");
+    function test_delegatecallRejected_getEpoch() public {
+        assertDelegatecallRejected(getEpochData);
     }
 
     function test_delegatecallRejectedViaContract() public {
@@ -93,18 +97,18 @@ contract StakingCallRestrictionsTest is Test {
 
     // ============ Multiple selectors rejected via DELEGATECALL ============
 
-    function test_delegatecallRejectedForAllSelectors() public {
-        bytes[4] memory selectors = [
-            abi.encodeWithSelector(IMonadStaking.getEpoch.selector),
-            abi.encodeWithSelector(IMonadStaking.getProposerValId.selector),
-            abi.encodeWithSelector(IMonadStaking.getConsensusValidatorSet.selector, uint32(0)),
-            abi.encodeWithSelector(IMonadStaking.getValidator.selector, uint64(1))
-        ];
+    function test_delegatecallRejected_getProposerValId() public {
+        assertDelegatecallRejected(abi.encodeWithSelector(IMonadStaking.getProposerValId.selector));
+    }
 
-        for (uint256 i = 0; i < selectors.length; i++) {
-            (bool success,) = STAKING_ADDRESS.delegatecall(selectors[i]);
-            assertFalse(success, "DELEGATECALL should be rejected for all selectors");
-        }
+    function test_delegatecallRejected_getConsensusValidatorSet() public {
+        assertDelegatecallRejected(
+            abi.encodeWithSelector(IMonadStaking.getConsensusValidatorSet.selector, uint32(0))
+        );
+    }
+
+    function test_delegatecallRejected_getValidator() public {
+        assertDelegatecallRejected(abi.encodeWithSelector(IMonadStaking.getValidator.selector, uint64(1)));
     }
 }
 
