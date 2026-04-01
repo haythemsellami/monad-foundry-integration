@@ -7,7 +7,10 @@ import {PagifiedStateDemo} from "src/PagifiedStateDemo.sol";
 contract MonadNextPagifiedStateDemoTest is Test {
     uint256 internal constant PAGE_CROSSING_INDEX = 128;
     uint256 internal constant READ_PAGE_DISCOUNT = 8000;
-    uint256 internal constant WRITE_PAGE_DISCOUNT = 8100;
+    uint256 internal constant WRITE_PAGE_DISCOUNT = 10800;
+    uint256 internal constant BASE_WRITE_GAS = 108;
+    uint256 internal constant ZERO_COST_WRITE_GAS = 8;
+    uint256 internal constant NEW_SLOT_COST = 17100;
 
     function test_denseArrayReadsWarmByPage() public {
         PagifiedStateDemo adjacent = new PagifiedStateDemo();
@@ -99,6 +102,79 @@ contract MonadNextPagifiedStateDemoTest is Test {
             WRITE_PAGE_DISCOUNT,
             "same mapping entry fields should write cheaper than different mapping keys"
         );
+    }
+
+    function test_cleanExistingSlotWritesChargePageWriteOncePerPage() public {
+        PagifiedStateDemo adjacent = new PagifiedStateDemo();
+        vm.store(address(adjacent), bytes32(uint256(0)), bytes32(uint256(11)));
+        vm.store(address(adjacent), bytes32(uint256(1)), bytes32(uint256(22)));
+
+        PagifiedStateDemo far = new PagifiedStateDemo();
+        vm.store(address(far), bytes32(uint256(0)), bytes32(uint256(11)));
+        vm.store(address(far), bytes32(uint256(PAGE_CROSSING_INDEX)), bytes32(uint256(33)));
+
+        (uint256 adjacentFirst, uint256 adjacentSecond) = _measureWriteOps(adjacent, 0, 1, 111, 222);
+        (uint256 farFirst, uint256 farSecond) = _measureWriteOps(far, 0, PAGE_CROSSING_INDEX, 111, 333);
+
+        console.log("MonadNext clean existing write gas, first slot:", adjacentFirst);
+        console.log("MonadNext clean existing write gas, second slot same page:", adjacentSecond);
+        console.log("MonadNext clean existing write gas, first far slot:", farFirst);
+        console.log("MonadNext clean existing write gas, second far slot:", farSecond);
+
+        assertEq(adjacentFirst, farFirst, "first clean write should cost the same on each cold page");
+        assertEq(
+            farSecond - adjacentSecond,
+            WRITE_PAGE_DISCOUNT,
+            "same-page clean existing writes should only charge page write once"
+        );
+    }
+
+    function test_dirtyRewriteFallsBackToBaseCost() public {
+        PagifiedStateDemo demo = new PagifiedStateDemo();
+        vm.store(address(demo), bytes32(uint256(0)), bytes32(uint256(11)));
+
+        (uint256 first, uint256 second) = _measureWriteOps(demo, 0, 0, 111, 222);
+
+        console.log("MonadNext dirty rewrite gas, first clean write:", first);
+        console.log("MonadNext dirty rewrite gas, second write same slot:", second);
+
+        assertEq(
+            first - second,
+            WRITE_PAGE_DISCOUNT,
+            "dirty rewrite should drop both the cold-read and first-page-write charges"
+        );
+    }
+
+    function test_zeroToNonzeroToZeroSkipsBaseCost() public {
+        PagifiedStateDemo demo = new PagifiedStateDemo();
+
+        (uint256 first, uint256 second) = _measureWriteOps(demo, 0, 0, 111, 0);
+
+        console.log("MonadNext zero->nonzero write gas:", first);
+        console.log("MonadNext zero->nonzero->zero write gas:", second);
+
+        assertEq(second, ZERO_COST_WRITE_GAS, "0 -> Y -> 0 should collapse back to zero-cost page accounting");
+        assertEq(first - second, 28000, "0 -> 0 -> Y should pay cold read, page write, growth, and base");
+    }
+
+    function test_restoringClearedSlotDoesNotRechargeGrowth() public {
+        PagifiedStateDemo restored = new PagifiedStateDemo();
+        // Seed persisted state directly so the measured transaction starts from
+        // original = present = nonzero. A prior Solidity call would happen in
+        // the same test transaction and make the slot dirty before we measure.
+        vm.store(address(restored), bytes32(uint256(0)), bytes32(uint256(11)));
+
+        (uint256 clearGas, uint256 restoreGas) = _measureWriteOps(restored, 0, 0, 0, 222);
+
+        PagifiedStateDemo fresh = new PagifiedStateDemo();
+        (, uint256 newSlotGas) = _measureWriteOps(fresh, 0, 1, 111, 222);
+
+        console.log("MonadNext clear existing slot gas:", clearGas);
+        console.log("MonadNext restore cleared slot gas:", restoreGas);
+        console.log("MonadNext second same-page new-slot write gas:", newSlotGas);
+
+        assertEq(restoreGas, BASE_WRITE_GAS, "X -> 0 -> Z should only pay base cost");
+        assertEq(newSlotGas - restoreGas, NEW_SLOT_COST, "restoring a cleared slot should not recharge growth");
     }
 
     function _measureReadOps(PagifiedStateDemo demo, uint256 slotA, uint256 slotB)
