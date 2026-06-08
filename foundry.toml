@@ -2,6 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+network = "monad"
 
 # Pin solc version and disable optimizer for reproducible gas measurements
 # across MonadGasTest (exact overhead constants) and MIP-3 tests (linear deltas).
@@ -11,9 +12,11 @@ via_ir = false
 
 # MIP-3 testing profiles
 [profile.monad_eight]
-monad_hardfork = "MonadEight"
+network = "monad"
+hardfork = "monad:MonadEight"
 
 [profile.monad_nine]
-monad_hardfork = "MonadNine"
+network = "monad"
+hardfork = "monad:MonadNine"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
