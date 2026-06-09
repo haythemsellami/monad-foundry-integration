@@ -20,9 +20,9 @@ PROJECT_ROOT=$(pwd)
 # Keep script parsing stable when using Monad nightly builds.
 export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-1}"
 
-is_rate_limited_file() {
+is_retryable_rpc_file() {
     local logfile="$1"
-    grep -Eq '429|Too Many Requests' "$logfile"
+    grep -Eiq '429|Too Many Requests|No response|timed out|timeout|connection reset|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout' "$logfile"
 }
 
 run_and_capture() {
@@ -118,11 +118,11 @@ run_forge_suite_with_retry() {
             return 0
         fi
 
-        if ! is_rate_limited_file "$logfile"; then
+        if ! is_retryable_rpc_file "$logfile"; then
             return $status
         fi
 
-        echo "    forge suite $suite_label hit RPC rate limits; retrying ($attempt/$max_retries)..." >&2
+        echo "    forge suite $suite_label hit a retryable RPC error; retrying ($attempt/$max_retries)..." >&2
         sleep $((attempt * 10))
         attempt=$((attempt + 1))
     done
