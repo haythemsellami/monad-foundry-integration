@@ -17,4 +17,14 @@ hardfork = "monad:MonadEight"
 [profile.monad_nine]
 hardfork = "monad:MonadNine"
 
+[profile.network_monad]
+network = "monad"
+hardfork = "monad:MonadNine"
+
+# Legacy v1.6-style alias. Kept here so the integration suite verifies the
+# deprecated alias continues to resolve to canonical Monad network config.
+[profile.legacy_monad_alias]
+monad = true
+hardfork = "monad:MonadNine"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -219,6 +219,48 @@ done
 echo ""
 
 # ============================================================================
+# FORGE TOOLING SCRIPT TESTS
+# ============================================================================
+echo -e "${YELLOW}[FORGE TOOLING SCRIPT TESTS]${NC}"
+
+for script in "$PROJECT_ROOT"/script/test/forge/*.sh; do
+    [[ -f "$script" ]] || continue
+    script_name=$(basename "$script")
+    output_file=$(mktemp)
+
+    if run_step "$script_name" "$output_file" "$script"; then
+        PASSED=$((PASSED + 1))
+    else
+        FAILED=$((FAILED + 1))
+        FAILED_TESTS+=("forge-tooling: $script_name")
+    fi
+    rm -f "$output_file"
+done
+
+echo ""
+
+# ============================================================================
+# CAST TESTS
+# ============================================================================
+echo -e "${YELLOW}[CAST TESTS]${NC}"
+
+for script in "$PROJECT_ROOT"/script/test/cast/*.sh; do
+    [[ -f "$script" ]] || continue
+    script_name=$(basename "$script")
+    output_file=$(mktemp)
+
+    if run_step "$script_name" "$output_file" "$script"; then
+        PASSED=$((PASSED + 1))
+    else
+        FAILED=$((FAILED + 1))
+        FAILED_TESTS+=("cast: $script_name")
+    fi
+    rm -f "$output_file"
+done
+
+echo ""
+
+# ============================================================================
 # MIP-3 MEMORY TESTS
 # ============================================================================
 echo -e "${YELLOW}[MIP-3 MEMORY TESTS]${NC}"
