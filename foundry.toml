@@ -3,6 +3,8 @@ src = "src"
 out = "out"
 libs = ["lib"]
 hardfork = "monad:MonadNine"
+isolate = false
+memory_limit = 8388608
 
 # Pin solc version and disable optimizer for reproducible gas measurements
 # across MonadGasTest (exact overhead constants) and MIP-3 tests (linear deltas).
@@ -13,9 +15,11 @@ via_ir = false
 # MIP-3 testing profiles
 [profile.monad_eight]
 hardfork = "monad:MonadEight"
+memory_limit = 134217728
 
 [profile.monad_nine]
 hardfork = "monad:MonadNine"
+memory_limit = 8388608
 
 [profile.network_monad]
 network = "monad"
