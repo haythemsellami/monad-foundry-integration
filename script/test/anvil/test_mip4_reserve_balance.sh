@@ -148,6 +148,7 @@ cast send "$AUTH1" "spendAndRecord(address,uint256)" "$SINK_NINE" "$SPEND_AMOUNT
     --rpc-url "$RPC_NINE" \
     --private-key "$AUTH1_PK" \
     --auth "$PROBE_NINE" \
+    --force \
     >/dev/null 2>&1
 
 BEFORE=$(cast call "$AUTH1" "lastBefore()(bool)" --rpc-url "$RPC_NINE" 2>/dev/null)
@@ -163,6 +164,7 @@ cast send "$AUTH2" "spendRestoreAndRecord(address,uint256)" "$SINK_NINE" "$SPEND
     --rpc-url "$RPC_NINE" \
     --private-key "$AUTH2_PK" \
     --auth "$PROBE_NINE" \
+    --force \
     >/dev/null 2>&1
 
 BEFORE=$(cast call "$AUTH2" "lastBefore()(bool)" --rpc-url "$RPC_NINE" 2>/dev/null)
@@ -179,6 +181,7 @@ cast send "$AUTH3" "childSpendRevertAndRecord(address,uint256)" "$SINK_NINE" "$S
     --rpc-url "$RPC_NINE" \
     --private-key "$AUTH3_PK" \
     --auth "$PROBE_NINE" \
+    --force \
     >/dev/null 2>&1
 
 CHILD_OK=$(cast call "$AUTH3" "lastChildCallOk()(bool)" --rpc-url "$RPC_NINE" 2>/dev/null)

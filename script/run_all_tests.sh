@@ -20,6 +20,15 @@ PROJECT_ROOT=$(pwd)
 # Keep script parsing stable when using Monad nightly builds.
 export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-1}"
 
+# The runner captures output from non-interactive subprocesses, so Foundry
+# cannot prompt to approve the project dotenv. Every nested Bash test inherits
+# these wrappers and explicitly opts into the trusted integration-test dotenv.
+forge() { command forge --allow-project-env "$@"; }
+cast() { command cast --allow-project-env "$@"; }
+anvil() { command anvil --allow-project-env "$@"; }
+chisel() { command chisel --allow-project-env "$@"; }
+export -f forge cast anvil chisel
+
 is_retryable_rpc_file() {
     local logfile="$1"
     grep -Eiq '429|Too Many Requests|No response|timed out|timeout|connection reset|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout' "$logfile"
@@ -313,6 +322,34 @@ if [[ $MIP4_FAILED -gt 0 ]]; then
         name=$(echo "$line" | sed 's/.*FAIL //')
         FAILED_TESTS+=("mip4: $name")
     done <<< "$(echo "$MIP4_OUTPUT" | grep 'FAIL' || true)"
+fi
+
+echo ""
+
+# ============================================================================
+# MIP-8 PAGIFIED STATE TESTS
+# ============================================================================
+echo -e "${YELLOW}[MIP-8 PAGIFIED STATE TESTS]${NC}"
+
+MIP8_LOG=$(mktemp)
+run_step "test_mip8.sh" "$MIP8_LOG" "$PROJECT_ROOT/script/forge/test_mip8.sh" || true
+MIP8_OUTPUT=$(cat "$MIP8_LOG")
+rm -f "$MIP8_LOG"
+
+MIP8_PASSED=$(echo "$MIP8_OUTPUT" | grep -c 'PASS' || true)
+MIP8_FAILED=$(echo "$MIP8_OUTPUT" | grep -c 'FAIL' || true)
+
+PASSED=$((PASSED + MIP8_PASSED))
+FAILED=$((FAILED + MIP8_FAILED))
+
+echo -e "  MIP-8 summary: ${GREEN}${MIP8_PASSED} passed${NC}, ${RED}${MIP8_FAILED} failed${NC}"
+
+if [[ $MIP8_FAILED -gt 0 ]]; then
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        name=$(echo "$line" | sed 's/.*FAIL //')
+        FAILED_TESTS+=("mip8: $name")
+    done <<< "$(echo "$MIP8_OUTPUT" | grep 'FAIL' || true)"
 fi
 
 echo ""
