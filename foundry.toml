@@ -2,7 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-hardfork = "monad:MonadNine"
+hardfork = "monad:MonadTen"
 isolate = false
 memory_limit = 8388608
 
@@ -12,7 +12,7 @@ solc_version = "0.8.28"
 optimizer = false
 via_ir = false
 
-# MIP-3 testing profiles
+# Monad hardfork testing profiles
 [profile.monad_eight]
 hardfork = "monad:MonadEight"
 memory_limit = 134217728
@@ -21,14 +21,18 @@ memory_limit = 134217728
 hardfork = "monad:MonadNine"
 memory_limit = 8388608
 
+[profile.monad_ten]
+hardfork = "monad:MonadTen"
+memory_limit = 8388608
+
 [profile.network_monad]
 network = "monad"
-hardfork = "monad:MonadNine"
+hardfork = "monad:MonadTen"
 
 # Legacy v1.6-style alias. Kept here so the integration suite verifies the
 # deprecated alias continues to resolve to canonical Monad network config.
 [profile.legacy_monad_alias]
 monad = true
-hardfork = "monad:MonadNine"
+hardfork = "monad:MonadTen"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

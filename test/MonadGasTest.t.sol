@@ -12,10 +12,10 @@ import {Test, console} from "forge-std/Test.sol";
 ///        - COLD_ACCOUNT_ACCESS_COST: 10100 (Ethereum: 2600)
 ///        - WARM_ACCESS_COST:           100 (same as Ethereum)
 ///
-///      SSTORE Costs (same as Ethereum):
-///        - SSTORE_SET:   20000 (0 -> non-zero)
-///        - SSTORE_RESET:  2900 (non-zero -> X when current == original)
-///        - SSTORE_DIRTY:   100 (when current != original)
+///      MIP-8 SSTORE Costs (MonadTen+):
+///        - BASE:          100
+///        - PAGE_WRITE:   2800
+///        - STATE_GROWTH: 17000
 ///
 ///      No-Refund Model (from handler.rs):
 ///        - refund() sets refund counter to 0
@@ -38,11 +38,11 @@ contract MonadGasTest is Test {
     uint256 constant ETH_COLD_ACCOUNT_ACCESS_COST = 2600;
 
     // =========================================================================
-    // Standard EVM Constants (unchanged in Monad)
+    // MIP-8 SSTORE constants
     // =========================================================================
-    uint256 constant SSTORE_SET = 20000;
-    uint256 constant SSTORE_RESET = 2900;
-    uint256 constant SSTORE_DIRTY = 100;
+    uint256 constant MIP8_BASE_COST = 100;
+    uint256 constant PAGE_WRITE_COST = 2800;
+    uint256 constant STATE_GROWTH_COST = 17000;
 
     // Measurement overhead from stack operations
     uint256 constant MEASUREMENT_OVERHEAD = 25;
@@ -195,7 +195,7 @@ contract MonadGasTest is Test {
     // =========================================================================
 
     /// @notice Test exact SSTORE costs with inline assembly
-    /// @dev Verifies cold SSTORE = 28100 (8100 + 20000), dirty slot = 100
+    /// @dev Verifies cold SSTORE = 27900 (8000 + 2800 + 17000), dirty slot = 100
     function test_SstoreExactCosts() public {
         uint256 gasBefore;
         uint256 gasAfter;
@@ -207,7 +207,7 @@ contract MonadGasTest is Test {
         }
         uint256 baseline = gasBefore - gasAfter;
 
-        // Cold SSTORE (0 -> 1): 8100 + 20000 = 28100
+        // Cold SSTORE (0 -> 1): 8000 + 2800 + 17000 = 27900
         assembly {
             gasBefore := gas()
             sstore(0x100, 1)
@@ -216,7 +216,7 @@ contract MonadGasTest is Test {
         uint256 coldCost = (gasBefore - gasAfter) - baseline - 6; // 6 = PUSH overhead
 
         console.log("Cold SSTORE (0->1):", coldCost);
-        assertEq(coldCost, MONAD_COLD_SLOAD_COST + SSTORE_SET, "Cold SSTORE must cost 28100");
+        assertEq(coldCost, MONAD_COLD_SLOAD_COST + PAGE_WRITE_COST + STATE_GROWTH_COST, "Cold SSTORE must cost 27900");
 
         // Warm clear (1 -> 0): dirty slot = 100
         assembly {
@@ -227,9 +227,9 @@ contract MonadGasTest is Test {
         uint256 clearCost = (gasBefore - gasAfter) - baseline - 5; // 5 = PUSH2 + PUSH0
 
         console.log("Warm clear (1->0):", clearCost);
-        assertEq(clearCost, SSTORE_DIRTY, "Dirty slot clear must cost 100");
+        assertEq(clearCost, MIP8_BASE_COST, "Dirty slot clear must cost 100");
 
-        // Warm set (0 -> 2): SSTORE_SET = 20000
+        // Warm regrowth within the prior high-water mark only pays the base cost.
         assembly {
             gasBefore := gas()
             sstore(0x100, 2)
@@ -238,7 +238,7 @@ contract MonadGasTest is Test {
         uint256 setCost = (gasBefore - gasAfter) - baseline - 6;
 
         console.log("Warm set (0->2):", setCost);
-        assertEq(setCost, SSTORE_SET, "Clean slot set must cost 20000");
+        assertEq(setCost, MIP8_BASE_COST, "Regrowth must not recharge state growth");
 
         // Warm modify (2 -> 3): dirty slot = 100
         assembly {
@@ -249,7 +249,7 @@ contract MonadGasTest is Test {
         uint256 modifyCost = (gasBefore - gasAfter) - baseline - 6;
 
         console.log("Warm modify (2->3):", modifyCost);
-        assertEq(modifyCost, SSTORE_DIRTY, "Dirty slot modify must cost 100");
+        assertEq(modifyCost, MIP8_BASE_COST, "Dirty slot modify must cost 100");
     }
 
     /// @notice Test cold SSTORE via external call
@@ -306,9 +306,9 @@ contract MonadGasTest is Test {
         console.log("Clear cost:", clearCost);
         console.log("Modify cost:", modifyCost);
 
-        // Both should be SSTORE_DIRTY (100) - no refund advantage for clearing
-        assertEq(clearCost, SSTORE_DIRTY, "Clear must cost 100");
-        assertEq(modifyCost, SSTORE_DIRTY, "Modify must cost 100");
+        // Both only pay the MIP-8 base cost; clearing has no refund advantage.
+        assertEq(clearCost, MIP8_BASE_COST, "Clear must cost 100");
+        assertEq(modifyCost, MIP8_BASE_COST, "Modify must cost 100");
         assertEq(clearCost, modifyCost, "Clear and modify must cost the same (no refund)");
     }
 

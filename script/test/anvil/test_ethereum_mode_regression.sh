@@ -67,8 +67,8 @@ INFO=$(cast rpc anvil_nodeInfo --rpc-url "$RPC")
 NETWORK=$(echo "$INFO" | jq -r '.network // empty')
 HARDFORK=$(echo "$INFO" | jq -r '.hardFork // .hard_fork // empty')
 
-if [[ -z "$NETWORK" || "$NETWORK" == "null" ]]; then
-    pass "plain Anvil nodeInfo does not advertise Monad network"
+if [[ -z "$NETWORK" || "$NETWORK" == "null" || "$NETWORK" == "ethereum" ]]; then
+    pass "plain Anvil nodeInfo reports Ethereum rather than Monad"
 else
     fail "plain Anvil advertised unexpected network: $NETWORK"
 fi

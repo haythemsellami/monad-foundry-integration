@@ -46,7 +46,7 @@ check_config() {
     local output
 
     output=$(FOUNDRY_PROFILE="$profile" forge config --json)
-    if echo "$output" | jq -e '.network == "monad" and .hardfork == "monad:MonadNine" and (has("monad") | not)' >/dev/null; then
+    if echo "$output" | jq -e '.network == "monad" and .hardfork == "monad:MonadTen" and (has("monad") | not)' >/dev/null; then
         pass "$label serializes as canonical network=monad without legacy monad key"
     else
         echo "$output"
@@ -63,7 +63,7 @@ echo ""
 cd "$PROJECT_ROOT"
 
 DEFAULT_CONFIG=$(forge config --json)
-if echo "$DEFAULT_CONFIG" | jq -e '.network == "monad" and .hardfork == "monad:MonadNine"' >/dev/null; then
+if echo "$DEFAULT_CONFIG" | jq -e '.network == "monad" and .hardfork == "monad:MonadTen"' >/dev/null; then
     pass "default profile infers Monad network from namespaced hardfork"
 else
     echo "$DEFAULT_CONFIG"
@@ -88,13 +88,13 @@ run_ok "forge test --monad legacy alias selects Monad EVM" \
         --match-test test_cleanCallReturnsFalse
 
 run_ok "FOUNDRY_PROFILE=network_monad executes Monad precompile test" \
-    env FOUNDRY_PROFILE=network_monad forge test \
+    env FOUNDRY_PROFILE=network_monad forge --allow-project-env test \
         --match-path test/Mip4ReserveBalanceTest.t.sol \
         --match-contract MonadNineMip4ReserveBalanceTest \
         --match-test test_cleanCallReturnsFalse
 
 run_ok "FOUNDRY_PROFILE=legacy_monad_alias executes Monad precompile test" \
-    env FOUNDRY_PROFILE=legacy_monad_alias forge test \
+    env FOUNDRY_PROFILE=legacy_monad_alias forge --allow-project-env test \
         --match-path test/Mip4ReserveBalanceTest.t.sol \
         --match-contract MonadNineMip4ReserveBalanceTest \
         --match-test test_cleanCallReturnsFalse

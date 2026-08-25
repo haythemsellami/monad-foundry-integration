@@ -54,7 +54,7 @@ contract VmSetEvmVersionMonadTest is Test {
 
         // Ethereum EVM names are accepted for compatibility but map through Monad's
         // default execution hardfork instead of switching the executor to Ethereum.
-        assertEq(evm.getEvmVersion(), "monadnine");
+        assertEq(evm.getEvmVersion(), "monadten");
         (bool ok, bytes memory ret) = _callClzProbe();
         assertTrue(ok, "Ethereum EVM aliases must keep execution in a Monad hardfork");
         assertEq(abi.decode(ret, (uint256)), 255);

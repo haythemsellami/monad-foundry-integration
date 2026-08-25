@@ -29,8 +29,10 @@ import {Test, console} from "forge-std/Test.sol";
 ///   - No refund for clearing storage
 contract RefundTest is Test {
     // Monad Gas Constants
-    uint256 constant MONAD_COLD_SLOAD = 8100;
-    uint256 constant SSTORE_SET = 20000;
+    uint256 constant MIP8_BASE_COST = 100;
+    uint256 constant MONAD_COLD_PAGE_READ = 8000;
+    uint256 constant PAGE_WRITE_COST = 2800;
+    uint256 constant STATE_GROWTH_COST = 17000;
 
     /// @notice Verify Monad's cold storage cost
     /// @dev PASSES on Monad Foundry, FAILS on standard Foundry
@@ -54,9 +56,10 @@ contract RefundTest is Test {
         uint256 coldCost = (gasBefore - gasAfter) - baseline - 6;
 
         console.log("Cold SSTORE cost:", coldCost);
-        console.log("Expected (Monad):", MONAD_COLD_SLOAD + SSTORE_SET);
+        uint256 expected = MIP8_BASE_COST + MONAD_COLD_PAGE_READ + PAGE_WRITE_COST + STATE_GROWTH_COST;
+        console.log("Expected (Monad):", expected);
 
-        assertEq(coldCost, MONAD_COLD_SLOAD + SSTORE_SET, "Must match Monad pricing (28100)");
+        assertEq(coldCost, expected, "Must match MonadTen MIP-8 pricing (27900)");
     }
 }
 
