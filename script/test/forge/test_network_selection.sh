@@ -14,6 +14,25 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 PASSED=0
 FAILED=0
 
+FORGE_PROJECT_ENV_ARG=""
+if (cd / && command forge --help 2>&1) | grep -q -- "--allow-project-env"; then
+    FORGE_PROJECT_ENV_ARG="--allow-project-env"
+fi
+
+forge() {
+    if [[ -n "$FORGE_PROJECT_ENV_ARG" ]]; then
+        command forge "$FORGE_PROJECT_ENV_ARG" "$@"
+    else
+        command forge "$@"
+    fi
+}
+
+forge_with_profile() {
+    local profile="$1"
+    shift
+    FOUNDRY_PROFILE="$profile" forge "$@"
+}
+
 pass() {
     echo -e "  ${GREEN}✓${NC} $1"
     PASSED=$((PASSED + 1))
@@ -88,13 +107,13 @@ run_ok "forge test --monad legacy alias selects Monad EVM" \
         --match-test test_cleanCallReturnsFalse
 
 run_ok "FOUNDRY_PROFILE=network_monad executes Monad precompile test" \
-    env FOUNDRY_PROFILE=network_monad forge --allow-project-env test \
+    forge_with_profile network_monad test \
         --match-path test/Mip4ReserveBalanceTest.t.sol \
         --match-contract MonadNineMip4ReserveBalanceTest \
         --match-test test_cleanCallReturnsFalse
 
 run_ok "FOUNDRY_PROFILE=legacy_monad_alias executes Monad precompile test" \
-    env FOUNDRY_PROFILE=legacy_monad_alias forge --allow-project-env test \
+    forge_with_profile legacy_monad_alias test \
         --match-path test/Mip4ReserveBalanceTest.t.sol \
         --match-contract MonadNineMip4ReserveBalanceTest \
         --match-test test_cleanCallReturnsFalse

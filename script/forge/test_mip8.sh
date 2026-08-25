@@ -18,7 +18,18 @@ cd "$(dirname "$0")/../.."
 PASSED=0
 FAILED=0
 
-forge() { command forge --allow-project-env "$@"; }
+FORGE_PROJECT_ENV_ARG=""
+if (cd / && command forge --help 2>&1) | grep -q -- "--allow-project-env"; then
+    FORGE_PROJECT_ENV_ARG="--allow-project-env"
+fi
+
+forge() {
+    if [[ -n "$FORGE_PROJECT_ENV_ARG" ]]; then
+        command forge "$FORGE_PROJECT_ENV_ARG" "$@"
+    else
+        command forge "$@"
+    fi
+}
 
 pass() { echo -e "  ${GREEN}PASS${NC} $1"; PASSED=$((PASSED + 1)); }
 fail() { echo -e "  ${RED}FAIL${NC} $1"; FAILED=$((FAILED + 1)); }

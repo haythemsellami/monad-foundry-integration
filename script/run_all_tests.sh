@@ -20,13 +20,57 @@ PROJECT_ROOT=$(pwd)
 # Keep script parsing stable when using Monad nightly builds.
 export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-1}"
 
-# The runner captures output from non-interactive subprocesses, so Foundry
-# cannot prompt to approve the project dotenv. Every nested Bash test inherits
-# these wrappers and explicitly opts into the trusted integration-test dotenv.
-forge() { command forge --allow-project-env "$@"; }
-cast() { command cast --allow-project-env "$@"; }
-anvil() { command anvil --allow-project-env "$@"; }
-chisel() { command chisel --allow-project-env "$@"; }
+# Older Foundry builds require explicit project-dotenv approval. Current builds
+# load the dotenv after a warning and no longer expose the approval flag.
+FORGE_PROJECT_ENV_ARG=""
+CAST_PROJECT_ENV_ARG=""
+ANVIL_PROJECT_ENV_ARG=""
+CHISEL_PROJECT_ENV_ARG=""
+if (cd / && command forge --help 2>&1) | grep -q -- "--allow-project-env"; then
+    FORGE_PROJECT_ENV_ARG="--allow-project-env"
+fi
+if (cd / && command cast --help 2>&1) | grep -q -- "--allow-project-env"; then
+    CAST_PROJECT_ENV_ARG="--allow-project-env"
+fi
+if (cd / && command anvil --help 2>&1) | grep -q -- "--allow-project-env"; then
+    ANVIL_PROJECT_ENV_ARG="--allow-project-env"
+fi
+if (cd / && command chisel --help 2>&1) | grep -q -- "--allow-project-env"; then
+    CHISEL_PROJECT_ENV_ARG="--allow-project-env"
+fi
+export FORGE_PROJECT_ENV_ARG CAST_PROJECT_ENV_ARG ANVIL_PROJECT_ENV_ARG CHISEL_PROJECT_ENV_ARG
+
+forge() {
+    if [[ -n "$FORGE_PROJECT_ENV_ARG" ]]; then
+        command forge "$FORGE_PROJECT_ENV_ARG" "$@"
+    else
+        command forge "$@"
+    fi
+}
+
+cast() {
+    if [[ -n "$CAST_PROJECT_ENV_ARG" ]]; then
+        command cast "$CAST_PROJECT_ENV_ARG" "$@"
+    else
+        command cast "$@"
+    fi
+}
+
+anvil() {
+    if [[ -n "$ANVIL_PROJECT_ENV_ARG" ]]; then
+        command anvil "$ANVIL_PROJECT_ENV_ARG" "$@"
+    else
+        command anvil "$@"
+    fi
+}
+
+chisel() {
+    if [[ -n "$CHISEL_PROJECT_ENV_ARG" ]]; then
+        command chisel "$CHISEL_PROJECT_ENV_ARG" "$@"
+    else
+        command chisel "$@"
+    fi
+}
 export -f forge cast anvil chisel
 
 is_retryable_rpc_file() {

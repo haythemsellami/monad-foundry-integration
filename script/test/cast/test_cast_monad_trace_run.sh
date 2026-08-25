@@ -84,7 +84,7 @@ SEND_JSON=$(cast send "$RESERVE_BALANCE" "$DIPPED_SELECTOR" \
     --rpc-url "$RPC" \
     --private-key "$PRIVATE_KEY" \
     --gas-limit 100000 \
-    --json 2>&1)
+    --json)
 
 TX_HASH=$(echo "$SEND_JSON" | jq -r '.transactionHash // .transaction_hash // empty')
 if [[ -n "$TX_HASH" ]]; then

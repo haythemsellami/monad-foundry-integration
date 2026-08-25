@@ -29,10 +29,10 @@ PIDS=()
 
 CAST_PROJECT_ENV_ARG=""
 ANVIL_PROJECT_ENV_ARG=""
-if [[ $(command cast --help 2>&1) == *"--allow-project-env"* ]]; then
+if [[ $(cd / && command cast --help 2>&1) == *"--allow-project-env"* ]]; then
     CAST_PROJECT_ENV_ARG="--allow-project-env"
 fi
-if [[ $(command anvil --help 2>&1) == *"--allow-project-env"* ]]; then
+if [[ $(cd / && command anvil --help 2>&1) == *"--allow-project-env"* ]]; then
     ANVIL_PROJECT_ENV_ARG="--allow-project-env"
 fi
 
