@@ -63,6 +63,26 @@ probe_gas() {
     cast to-dec "$result"
 }
 
+estimate_gas() {
+    local rpc="$1"
+    local code="$2"
+    local result
+
+    cast rpc anvil_setCode "$PROBE_ADDRESS" "$code" --rpc-url "$rpc" >/dev/null
+    result=$(cast rpc eth_estimateGas "{\"to\":\"$PROBE_ADDRESS\"}" latest --rpc-url "$rpc")
+    cast to-dec "$(echo "$result" | jq -r '.')"
+}
+
+trace_gas() {
+    local rpc="$1"
+    local code="$2"
+    local result
+
+    cast rpc anvil_setCode "$PROBE_ADDRESS" "$code" --rpc-url "$rpc" >/dev/null
+    result=$(cast rpc trace_call "{\"to\":\"$PROBE_ADDRESS\"}" '["trace"]' latest --rpc-url "$rpc")
+    cast to-dec "$(echo "$result" | jq -r '.trace[0].result.gasUsed')"
+}
+
 check_hardfork() {
     local label="$1"
     local rpc="$2"
@@ -105,6 +125,35 @@ check_deltas() {
     fi
 }
 
+check_rpc_deltas() {
+    local label="$1"
+    local rpc="$2"
+    local expected_read="$3"
+    local expected_write="$4"
+    local method="$5"
+    local probe="$6"
+    local read_same read_different write_same write_different read_delta write_delta
+
+    read_same=$("$probe" "$rpc" "$READ_SAME_PAGE")
+    read_different=$("$probe" "$rpc" "$READ_DIFFERENT_PAGE")
+    write_same=$("$probe" "$rpc" "$WRITE_SAME_PAGE")
+    write_different=$("$probe" "$rpc" "$WRITE_DIFFERENT_PAGE")
+    read_delta=$((read_different - read_same))
+    write_delta=$((write_different - write_same))
+
+    if [[ $read_delta -eq $expected_read ]]; then
+        pass "$label $method read-page delta is $expected_read gas"
+    else
+        fail "$label $method read-page delta is $read_delta gas, expected $expected_read"
+    fi
+
+    if [[ $write_delta -eq $expected_write ]]; then
+        pass "$label $method write-page delta is $expected_write gas"
+    else
+        fail "$label $method write-page delta is $write_delta gas, expected $expected_write"
+    fi
+}
+
 echo ""
 echo -e "${CYAN}============================================================${NC}"
 echo -e "${CYAN}  MIP-8 ANVIL RPC TESTS${NC}"
@@ -128,6 +177,10 @@ if [[ $FAILED -eq 0 ]]; then
     check_hardfork "MonadNine Anvil" "$RPC_NINE" "MonadNine"
     check_deltas "MonadTen" "$RPC_TEN" 8000 10800
     check_deltas "MonadNine" "$RPC_NINE" 0 0
+    check_rpc_deltas "MonadTen" "$RPC_TEN" 8000 10800 "eth_estimateGas" estimate_gas
+    check_rpc_deltas "MonadNine" "$RPC_NINE" 0 0 "eth_estimateGas" estimate_gas
+    check_rpc_deltas "MonadTen" "$RPC_TEN" 8000 10800 "trace_call" trace_gas
+    check_rpc_deltas "MonadNine" "$RPC_NINE" 0 0 "trace_call" trace_gas
 fi
 
 echo ""
